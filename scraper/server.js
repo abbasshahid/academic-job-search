@@ -86,19 +86,3 @@ app.listen(PORT, () => {
   console.log(`🎧 Scraper listening on http://localhost:${PORT}`);
 });
 
-if (process.argv.includes('--once')) {
-  // use your POST handler logic but call it directly
-  (async () => {
-    const careerPages = JSON.parse(
-      fs.readFileSync(path.resolve(__dirname, '..', 'src', 'career_pages.json'), 'utf-8')
-    ).career_pages;
-    const keywords = JSON.parse(
-      fs.readFileSync(path.resolve(__dirname, '..', 'src', 'keywords.json'), 'utf-8')
-    ).keywords;
-    console.log('🚀 Running one-off scrape for', careerPages.length, 'pages…');
-    // pull out your POST handler body into a function scrapeAndWrite()
-    await scrapeAndWrite(careerPages, keywords);
-    console.log('✅ Done scraping, exiting.');
-    process.exit(0);
-  })();
-}
