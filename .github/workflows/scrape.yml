@@ -2,28 +2,35 @@ name: 🕷️ Scrape & Commit Jobs
 
 on:
   schedule:
-    - cron: '0 * * * *'
-  workflow_dispatch:
+    - cron: '0 * * * *'    # every hour
+  workflow_dispatch:      # manual trigger
 
 jobs:
   build_and_scrape:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
 
-      - name: Use Node.js
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '16'
 
-      - name: Install scraper deps
+      - name: Install scraper dependencies
         working-directory: scraper
-        run: npm ci
-
-      - name: Run scraper (one-off)
-        working-directory: scraper
-        # read payload.json and invoke scraper in one-off mode
         run: |
+          npm ci
+          # Install OS libs needed by Playwright’s Chromium
+          npx playwright install-deps
+          # Download Playwright browsers
+          npx playwright install
+
+      - name: Run scraper in one-off mode
+        working-directory: scraper
+        run: |
+          # Feed in your payload.json containing careerPages + keywords
           node server.js --once < payload.json
 
       - name: Commit updated jobs JSON

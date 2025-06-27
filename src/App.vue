@@ -1,24 +1,26 @@
 <template>
-  <main class="p-4 max-w-3xl mx-auto">
-    <h1 class="text-3xl font-bold mb-6">University Job Search</h1>
-    <SearchJobs />
-  </main>
+  <v-app :class="generalInfoStore.theme">
+    <Header />
+    <!-- Wrap main content to push it below the app bar -->
+    <v-main app>
+      <SearchJobs />
+    </v-main>
+  </v-app>
 </template>
 
-<script lang="ts">
-import { defineComponent } from "vue";
-import SearchJobs from "@/components/SearchJobs.vue";
-
-export default defineComponent({
-  name: "App",
-  components: { SearchJobs }
-});
+<script setup lang="ts">
+import { generalInfoStore } from './store/generalInfo';
+import Header from './components/Header.vue';
+import SearchJobs from './components/SearchJobs.vue';
 </script>
 
 <style>
-body {
-  font-family: system-ui, sans-serif;
-  background: #f9f9f9;
-  color: #333;
+/* Global theme classes */
+.v-application.light {
+  background-color: #fafafa;
+}
+.v-application.dark {
+  background-color: #121212;
+  color: #fff;
 }
 </style>
