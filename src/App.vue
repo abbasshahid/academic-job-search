@@ -1,7 +1,6 @@
 <template>
-  <v-app :class="generalInfoStore.theme">
+  <v-app>
     <Header />
-    <!-- Wrap main content to push it below the app bar -->
     <v-main app>
       <SearchJobs />
     </v-main>
@@ -12,7 +11,23 @@
 import { generalInfoStore } from './store/generalInfo';
 import Header from './components/Header.vue';
 import SearchJobs from './components/SearchJobs.vue';
+import { useTheme } from 'vuetify';
+import { watch } from 'vue';
+
+// sync our theme store with Vuetify's theme system
+const { global: themeGlobal } = useTheme();
+watch(
+  () => generalInfoStore.theme,
+  (val) => {
+    themeGlobal.name.value = val;
+  },
+  { immediate: true }
+);
 </script>
+
+<style>
+/* No manual theme CSS needed; Vuetify handles styles */
+</style>
 
 <style>
 /* Global theme classes */
