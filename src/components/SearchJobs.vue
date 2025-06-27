@@ -1,153 +1,211 @@
 <template>
-  <section class="p-4">
-    <label for="kw" class="block font-medium mb-2">Keywords (comma-separated):</label>
-    <input
-      id="kw"
-      v-model="keywordInput"
-      @keyup.enter="onSearch"
-      type="text"
-      placeholder="e.g. professor, researcher"
-      class="w-full p-2 border rounded mb-4"
-    />
+  <v-container class="py-8">
+    <v-row justify="center">
+      <v-col cols="12" md="8">
+        <v-card outlined elevation="2">
+          <v-card-title>
+            <span class="text-h5 font-medium">Job Search</span>
+            <v-spacer />
+            <v-btn icon @click="showFilters = !showFilters">
+              <v-icon>{{ showFilters ? 'mdi-filter-off' : 'mdi-filter' }}</v-icon>
+            </v-btn>
+          </v-card-title>
 
-    <button
-      @click="onSearch"
-      :disabled="loading || !hasKeywords"
-      class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-    >
-      {{ loading ? `Searching... (${currentIndex}/${totalPages})` : 'Search' }}
-    </button>
+          <v-expand-transition>
+            <div v-if="showFilters">
+              <v-divider />
+              <v-card-text>
+                <v-row dense>
+                  <!-- Country Filter -->
+                  <v-col cols="12" sm="4">
+                    <v-select
+                      v-model="selectedCountry"
+                      :items="['All', ...countries.map(c => c.toUpperCase())]"
+                      label="Country"
+                      dense
+                      outlined
+                    />
+                  </v-col>
 
-    <p v-if="loading" class="mt-2 text-sm text-gray-600">
-      Processing page: <span class="font-mono">{{ currentPage }}</span>
-    </p>
+                  <!-- Keyword Match Mode -->
+                  <v-col cols="12" sm="4">
+                    <v-radio-group v-model="matchMode" row>
+                      <v-radio label="Any" value="any" />
+                      <v-radio label="All" value="all" />
+                    </v-radio-group>
+                  </v-col>
 
-    <ul v-if="error" class="mt-4 text-red-600">
-      <li>{{ error }}</li>
-    </ul>
+                  <!-- Link Options -->
+                  <v-col cols="12" sm="4">
+                    <v-radio-group v-model="linkMode">
+                      <v-radio label="Existing + Additional" value="both" />
+                      <v-radio label="Only Additional" value="onlyExtra" />
+                    </v-radio-group>
+                  </v-col>
 
-    <ul v-else-if="jobs.length" class="mt-6 space-y-4">
-      <li
-        v-for="job in jobs"
-        :key="job.url"
-        class="bg-white p-4 rounded shadow-sm"
-      >
-        <a
-          :href="job.url"
-          target="_blank"
-          class="text-lg font-semibold text-blue-700 hover:underline"
-        >
-          {{ job.title }}
-        </a>
-        <p class="text-sm text-gray-600 mt-1">Source: {{ job.source }}</p>
-      </li>
-    </ul>
+                  <!-- Additional Links -->
+                  <v-col cols="12">
+                    <v-textarea
+                      v-model="extraLinksInput"
+                      label="Additional Links (one per line)"
+                      rows="2"
+                      dense
+                      outlined
+                    />
+                  </v-col>
+                </v-row>
+              </v-card-text>
+            </div>
+          </v-expand-transition>
 
-    <p v-else-if="!loading && hasSearched" class="mt-6 text-gray-500">
-      No results found.
-    </p>
-  </section>
+          <v-divider />
+
+          <v-card-text>
+            <v-text-field
+              v-model="keywordInput"
+              label="Keywords (comma-separated)"
+              placeholder="e.g. professor, researcher"
+              dense
+              outlined
+              @keyup.enter="onSearch"
+            />
+            <v-btn
+              block
+              color="primary"
+              class="mt-4"
+              :loading="loading"
+              :disabled="!hasKeywords || loading"
+              @click="onSearch"
+            >
+              Search
+            </v-btn>
+          </v-card-text>
+
+          <v-progress-linear v-if="loading" indeterminate color="primary" />
+
+          <v-card-text>
+            <v-alert v-if="error" type="error" dense>{{ error }}</v-alert>
+
+            <v-list two-line v-if="jobs.length">
+              <v-list-item v-for="job in jobs" :key="job.url">
+                <v-list-item-content>
+                  <v-list-item-title>
+                    <a :href="job.url" target="_blank">{{ job.title }}</a>
+                  </v-list-item-title>
+                  <v-list-item-subtitle>Source: {{ job.source }}</v-list-item-subtitle>
+                </v-list-item-content>
+              </v-list-item>
+            </v-list>
+
+            <v-alert v-else-if="!loading && hasSearched" type="info" dense>
+              No results found.
+            </v-alert>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
+  </v-container>
 </template>
 
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue';
 import type { Job } from '../types/job';
-import pagesData from '../../career_pages.json';
+// Import pre-scraped JSON produced by GitHub Actions
+import prebuiltJobs from '../prebuilt_jobs.json';
 
 export default defineComponent({
   name: 'SearchJobs',
   setup() {
+    const showFilters = ref(false);
     const keywordInput = ref('');
+    const extraLinksInput = ref('');
+    const linkMode = ref<'onlyExtra' | 'both'>('both');
+    const matchMode = ref<'any' | 'all'>('any');
+    const selectedCountry = ref<string>('All');
+
     const jobs = ref<Job[]>([]);
     const loading = ref(false);
     const error = ref<string | null>(null);
     const hasSearched = ref(false);
-    const currentPage = ref('');
-    const currentIndex = ref(0);
-    const totalPages = ref(0);
 
     const hasKeywords = computed(() => keywordInput.value.trim().length > 0);
 
-    async function onSearch() {
+    // Derive unique country codes from job sources
+    const countries = computed(() => {
+      const set = new Set<string>();
+      prebuiltJobs.forEach((j: Job) => {
+        try {
+          const code = new URL(j.source).hostname.split('.').pop() || '';
+          if (code) set.add(code.toLowerCase());
+        } catch {}
+      });
+      return Array.from(set).sort();
+    });
+
+    function onSearch() {
       if (!hasKeywords.value) return;
       loading.value = true;
       error.value = null;
       hasSearched.value = true;
-      jobs.value = [];
 
-      // Prepare keywords
       const kws = keywordInput.value
         .split(',')
         .map(k => k.trim().toLowerCase())
-        .filter(k => k.length);
+        .filter(k => k);
 
-      try {
-        const pages: string[] = pagesData.career_pages;
-        totalPages.value = pages.length;
-        currentIndex.value = 0;
+      // Build pool of jobs to filter
+      let pool: Job[] = prebuiltJobs;
 
-        for (const url of pages) {
-          currentIndex.value++;
-          currentPage.value = url;
-
-          try {
-            const res = await fetch(url);
-            if (!res.ok) {
-              console.warn(`Failed to fetch ${url}: ${res.status}`);
-              continue;
-            }
-            const html = await res.text();
-
-            // Parse HTML and extract links
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const anchors = Array.from(doc.querySelectorAll('a'));
-
-            const pageJobs: Job[] = [];
-            anchors.forEach(a => {
-              const title = a.textContent?.trim() || '';
-              const href = a.getAttribute('href');
-              if (!title || !href) return;
-              const textLower = title.toLowerCase();
-              // Check keywords
-              if (kws.some(kw => textLower.includes(kw))) {
-                // Resolve absolute URL
-                const fullUrl = new URL(href, url).href;
-                pageJobs.push({ title, url: fullUrl, source: url });
-              }
-            });
-
-            if (pageJobs.length) {
-              jobs.value.push(...pageJobs);
-            }
-          } catch (pageErr: any) {
-            console.warn(`Error processing ${url}: ${pageErr.message}`);
-            continue;
-          }
-        }
-      } catch (err: any) {
-        error.value = err.message || 'Unknown error';
-      } finally {
-        loading.value = false;
+      // Merge extra links by filtering jobs whose source matches extra links if onlyExtra
+      if (linkMode.value === 'onlyExtra') {
+        const extras = extraLinksInput.value.split('\n').map(l => l.trim()).filter(l => l);
+        pool = pool.filter(j => extras.includes(j.source));
+      } else if (extraLinksInput.value.trim()) {
+        const extras = extraLinksInput.value.split('\n').map(l => l.trim()).filter(l => l);
+        pool = pool.filter(j => !extras.length || extras.includes(j.source) || !prebuiltJobs.includes(j));
       }
+
+      // Apply country filter
+      if (selectedCountry.value !== 'All') {
+        pool = pool.filter(j => {
+          try {
+            return (new URL(j.source).hostname.split('.').pop() || '') === selectedCountry.value;
+          } catch {
+            return false;
+          }
+        });
+      }
+
+      // Apply keyword matching
+      jobs.value = pool.filter(j => {
+        const text = j.title.toLowerCase();
+        return matchMode.value === 'any'
+          ? kws.some(kw => text.includes(kw))
+          : kws.every(kw => text.includes(kw));
+      });
+
+      loading.value = false;
     }
 
     return {
+      showFilters,
       keywordInput,
+      extraLinksInput,
+      linkMode,
+      matchMode,
+      selectedCountry,
+      countries,
       jobs,
       loading,
       error,
       hasKeywords,
       hasSearched,
-      currentPage,
-      currentIndex,
-      totalPages,
       onSearch,
     };
-  },
+  }
 });
 </script>
 
 <style scoped>
-/* Add any scoped styles here */
+/* Vuetify global setup assumed in main.ts */
 </style>
