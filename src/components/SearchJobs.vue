@@ -16,7 +16,6 @@
               <v-divider />
               <v-card-text>
                 <v-row dense>
-                  <!-- Country Filter -->
                   <v-col cols="12" sm="4">
                     <v-select
                       v-model="selectedCountry"
@@ -27,7 +26,6 @@
                     />
                   </v-col>
 
-                  <!-- Keyword Match Mode -->
                   <v-col cols="12" sm="4">
                     <v-radio-group v-model="matchMode" row>
                       <v-radio label="Any" value="any" />
@@ -35,7 +33,6 @@
                     </v-radio-group>
                   </v-col>
 
-                  <!-- Link Options -->
                   <v-col cols="12" sm="4">
                     <v-radio-group v-model="linkMode">
                       <v-radio label="Existing + Additional" value="both" />
@@ -43,7 +40,6 @@
                     </v-radio-group>
                   </v-col>
 
-                  <!-- Additional Links -->
                   <v-col cols="12">
                     <v-textarea
                       v-model="extraLinksInput"
@@ -110,12 +106,12 @@
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue';
 import type { Job } from '../types/job';
-// Import pre-scraped JSON produced by GitHub Actions
 import prebuiltJobs from '../prebuilt_jobs.json';
 
 export default defineComponent({
   name: 'SearchJobs',
   setup() {
+    console.log('Bootstrapped job count:', prebuiltJobs.length);
     const showFilters = ref(false);
     const keywordInput = ref('');
     const extraLinksInput = ref('');
@@ -130,19 +126,19 @@ export default defineComponent({
 
     const hasKeywords = computed(() => keywordInput.value.trim().length > 0);
 
-    // Derive unique country codes from job sources
     const countries = computed(() => {
       const set = new Set<string>();
-      prebuiltJobs.forEach((j: Job) => {
+      prebuiltJobs.forEach(j => {
         try {
           const code = new URL(j.source).hostname.split('.').pop() || '';
-          if (code) set.add(code.toLowerCase());
+          set.add(code.toLowerCase());
         } catch {}
       });
       return Array.from(set).sort();
     });
 
     function onSearch() {
+      console.log('Searching for:', keywordInput.value);
       if (!hasKeywords.value) return;
       loading.value = true;
       error.value = null;
@@ -153,19 +149,13 @@ export default defineComponent({
         .map(k => k.trim().toLowerCase())
         .filter(k => k);
 
-      // Build pool of jobs to filter
-      let pool: Job[] = prebuiltJobs;
-
-      // Merge extra links by filtering jobs whose source matches extra links if onlyExtra
+      let pool = prebuiltJobs;
+      console.log('Initial pool:', pool.length);
       if (linkMode.value === 'onlyExtra') {
         const extras = extraLinksInput.value.split('\n').map(l => l.trim()).filter(l => l);
         pool = pool.filter(j => extras.includes(j.source));
-      } else if (extraLinksInput.value.trim()) {
-        const extras = extraLinksInput.value.split('\n').map(l => l.trim()).filter(l => l);
-        pool = pool.filter(j => !extras.length || extras.includes(j.source) || !prebuiltJobs.includes(j));
       }
-
-      // Apply country filter
+      console.log('After extra links:', pool.length);
       if (selectedCountry.value !== 'All') {
         pool = pool.filter(j => {
           try {
@@ -175,15 +165,16 @@ export default defineComponent({
           }
         });
       }
+      console.log('After country:', pool.length);
 
-      // Apply keyword matching
-      jobs.value = pool.filter(j => {
+      const filtered = pool.filter(j => {
         const text = j.title.toLowerCase();
         return matchMode.value === 'any'
           ? kws.some(kw => text.includes(kw))
           : kws.every(kw => text.includes(kw));
       });
-
+      console.log('Filtered results:', filtered.length);
+      jobs.value = filtered;
       loading.value = false;
     }
 
@@ -200,12 +191,12 @@ export default defineComponent({
       error,
       hasKeywords,
       hasSearched,
-      onSearch,
+      onSearch
     };
   }
 });
 </script>
 
 <style scoped>
-/* Vuetify global setup assumed in main.ts */
+/* Vuetify assumed globally in main.ts */
 </style>

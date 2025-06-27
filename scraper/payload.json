@@ -1,6 +1,5 @@
 {
-  "career_pages": [
-    "https://ias.szu.edu.cn/Home/Job_Openings/Academic_Staff.htm",
+  "careerPages": ["https://ias.szu.edu.cn/Home/Job_Openings/Academic_Staff.htm",
     "https://career.admo.um.edu.mo/#jobs",
     "https://www.hro.cuhk.edu.hk/en-gb/career/career-opportunities",
     "https://www.urv.cat/en/research/support/programmes/urv/programa-marti-franques/pipf/marti-franques-research-fellowship-programme-for-the-contracting-of-trainee-predoctoral-research-staff-2023-pipf-second-standard-edition/",
@@ -158,6 +157,7 @@
     "https://www.quora.com/Who-are-some-PhD-supervisors-working-on-blockchain",
     "https://sites.google.com/view/panwar/about",
     "https://research.manchester.ac.uk/en/persons/mustafa.mustafas",
-    "https://wenlinhan.github.io/"
-  ]
+    "https://wenlinhan.github.io/"],
+  "keywords": ["professor","researcher","lecturer", "PhD", "Ph.D", "PostDoc", "University Assistant", "research assistant", "research Associate", "Universtätassistant", 
+  "Praedoc", "Pre Doc", "post doc", "teaching assistant", "graduate research assistant"]
 }
