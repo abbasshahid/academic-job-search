@@ -20,6 +20,20 @@ if (!Array.isArray(careerPages) || !Array.isArray(keywords)) {
   process.exit(1);
 }
 
+// Safe navigation with retries for network errors
+async function safeGoto(page, url) {
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
+    } catch (e) {
+      console.warn(`⚠️ goto attempt ${attempt} for ${url} failed: ${e.message}`);
+      if (attempt === maxAttempts) throw e;
+      await page.waitForTimeout(2000);
+    }
+  }
+}
+
 // Helper: auto-scroll to bottom to trigger lazy-load
 async function autoScroll(page) {
   let lastHeight = await page.evaluate('document.body.scrollHeight');
@@ -32,7 +46,7 @@ async function autoScroll(page) {
   }
 }
 
-// Improved clickLoadMore: only click visible & enabled handles, loop until none left
+// Helper: click any "load more" buttons when visible and enabled
 async function clickLoadMore(page) {
   const selectors = [
     'button:has-text("load more")',
@@ -40,27 +54,22 @@ async function clickLoadMore(page) {
     'a:has-text("more jobs")',
     'button:has-text("weiter")', // German
   ];
-
   let clicked;
   do {
     clicked = false;
     for (const sel of selectors) {
       const handles = await page.$$(sel);
       for (const handle of handles) {
-        const visible = await handle.isVisible();
-        const enabled = typeof handle.isEnabled === 'function'
-          ? await handle.isEnabled()
-          : true;
-        if (visible && enabled) {
-          try {
+        try {
+          if (await handle.isVisible() && await handle.isEnabled()) {
             await handle.click();
-            await page.waitForTimeout(500);
             console.log(`  🎉 Clicked load-more selector: ${sel}`);
+            await page.waitForTimeout(500);
             clicked = true;
             break;
-          } catch (e) {
-            console.warn(`  ⚠️ Could not click ${sel}: ${e.message}`);
           }
+        } catch (e) {
+          // ignore errors on clicking invisible elements
         }
       }
       if (clicked) break;
@@ -68,9 +77,9 @@ async function clickLoadMore(page) {
   } while (clicked);
 }
 
-// 2) Scrape + handle JS, infinite scroll, load more, pagination + keyword filtering
+// 2) Scrape + handle JS, infinite scroll, load more, pagination + filtering
 async function scrapeAll(pages, kws) {
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
   const page = await browser.newPage();
   const results = [];
 
@@ -82,7 +91,7 @@ async function scrapeAll(pages, kws) {
       visited.add(nextUrl);
       console.log(`🔗 Visiting ${nextUrl}`);
       try {
-        await page.goto(nextUrl, { waitUntil: 'networkidle' });
+        await safeGoto(page, nextUrl);
       } catch (err) {
         console.error(`⚠️ Failed to load ${nextUrl}: ${err.message}`);
         break;
@@ -94,10 +103,7 @@ async function scrapeAll(pages, kws) {
 
       // 2b) Extract all links
       const anchors = await page.$$eval('a', els =>
-        els.map(a => ({
-          text: a.textContent?.trim() || '',
-          href: a.href
-        }))
+        els.map(a => ({ text: a.textContent?.trim() || '', href: a.href }))
       );
       for (const { text, href } of anchors) {
         if (!text || !href) continue;
