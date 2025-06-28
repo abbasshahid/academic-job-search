@@ -50,12 +50,15 @@ jobs:
       - name: Detect new job postings matching notification keywords
         id: notify
         run: |
-          jq -n --argfile old prev_jobs.json --argfile new src/prebuilt_jobs.json '
-            [ $new[] as $item
-              | select((($old[] | index($item)) | not))
-              | select($item.title | ascii_downcase | test($ENV.NOTIFY_KEYWORDS; "i"))
-              | "\($item.title) - \($item.url)"
-            ]' > new_matches.json
+          jq -n \
+          --slurpfile old prev_jobs.json \
+          --slurpfile new src/prebuilt_jobs.json \
+          '
+          [ $new[0][] as $item
+           | select((($old[0][] | index($item)) | not))
+           | select($item.title | ascii_downcase | test($ENV.NOTIFY_KEYWORDS; "i"))
+           | "\($item.title) - \($item.url)"
+          ]' > new_matches.json
           if [ -s new_matches.json ]; then
             echo "matches<<EOF" >> $GITHUB_ENV
             jq -r '.[]' new_matches.json >> $GITHUB_ENV
