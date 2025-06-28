@@ -13,7 +13,7 @@ permissions:
 
 env:
   # Comma-separated list of keywords for email notifications (case-insensitive regex)
-  NOTIFY_KEYWORDS: 'phd,graduate,researcher,preadoc,computer'
+  NOTIFY_KEYWORDS: 'phd,graduate,researcher,preadoc,computer,predoc'
 
 jobs:
   build_and_scrape:
