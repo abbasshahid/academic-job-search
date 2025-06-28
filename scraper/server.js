@@ -32,7 +32,7 @@ async function autoScroll(page) {
   }
 }
 
-// Helper: click any "load more" buttons
+// Improved clickLoadMore: only click visible & enabled handles, loop until none left
 async function clickLoadMore(page) {
   const selectors = [
     'button:has-text("load more")',
@@ -40,12 +40,32 @@ async function clickLoadMore(page) {
     'a:has-text("more jobs")',
     'button:has-text("weiter")', // German
   ];
-  for (const sel of selectors) {
-    while (await page.$(sel)) {
-      await page.click(sel);
-      await page.waitForTimeout(500);
+
+  let clicked;
+  do {
+    clicked = false;
+    for (const sel of selectors) {
+      const handles = await page.$$(sel);
+      for (const handle of handles) {
+        const visible = await handle.isVisible();
+        const enabled = typeof handle.isEnabled === 'function'
+          ? await handle.isEnabled()
+          : true;
+        if (visible && enabled) {
+          try {
+            await handle.click();
+            await page.waitForTimeout(500);
+            console.log(`  🎉 Clicked load-more selector: ${sel}`);
+            clicked = true;
+            break;
+          } catch (e) {
+            console.warn(`  ⚠️ Could not click ${sel}: ${e.message}`);
+          }
+        }
+      }
+      if (clicked) break;
     }
-  }
+  } while (clicked);
 }
 
 // 2) Scrape + handle JS, infinite scroll, load more, pagination + keyword filtering
@@ -74,7 +94,10 @@ async function scrapeAll(pages, kws) {
 
       // 2b) Extract all links
       const anchors = await page.$$eval('a', els =>
-        els.map(a => ({ text: a.textContent?.trim() || '', href: a.href }))
+        els.map(a => ({
+          text: a.textContent?.trim() || '',
+          href: a.href
+        }))
       );
       for (const { text, href } of anchors) {
         if (!text || !href) continue;
