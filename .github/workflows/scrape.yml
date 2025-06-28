@@ -55,7 +55,7 @@ jobs:
           # Diff previous vs new, then filter by NOTIFY_KEYWORDS
           jq -n --slurpfile old prev_jobs.json --slurpfile new src/prebuilt_jobs.json --arg re "$NOTIFY_KEYWORDS" '
             [ $new[0][] as $item
-              | select(( $old[0][] | index($item) ) | not)
+              | select( ($old[0] | index($item)) | not )
               | select($item.title | ascii_downcase | test($re; "i"))
               | "\($item.title) - \($item.url)"
             ]' > new_matches.json
