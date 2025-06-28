@@ -13,7 +13,7 @@ permissions:
 
 env:
   # Comma-separated list of keywords for email notifications (case-insensitive regex)
-  NOTIFY_KEYWORDS: 'phd,graduate,researcher,preadoc,computer,predoc'
+  NOTIFY_KEYWORDS: 'professor,lecturer,researcher,fellow'
 
 jobs:
   build_and_scrape:
@@ -25,10 +25,11 @@ jobs:
         with:
           persist-credentials: true
 
-      - name: Save previous jobs JSON
-        if: exists('src/prebuilt_jobs.json')
+      - name: Save previous jobs JSON (if present)
         run: |
-          cp src/prebuilt_jobs.json prev_jobs.json
+          if [ -f src/prebuilt_jobs.json ]; then
+            cp src/prebuilt_jobs.json prev_jobs.json
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -49,7 +50,6 @@ jobs:
       - name: Detect new job postings matching notification keywords
         id: notify
         run: |
-          # diff prev vs new JSON, then filter by NOTIFY_KEYWORDS
           jq -n --argfile old prev_jobs.json --argfile new src/prebuilt_jobs.json '
             [ $new[] as $item
               | select((($old[] | index($item)) | not))
@@ -67,12 +67,12 @@ jobs:
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: ${{ secrets.SMTP_SERVER }}
-          server_port: ${{ secrets.SMTP_PORT }}
-          username: ${{ secrets.SMTP_USERNAME }}
-          password: ${{ secrets.SMTP_PASSWORD }}
+          server_port:    ${{ secrets.SMTP_PORT }}
+          username:       ${{ secrets.SMTP_USERNAME }}
+          password:       ${{ secrets.SMTP_PASSWORD }}
           subject: "New Job Listings Matching Keywords"
-          to: ${{ secrets.NOTIFY_EMAIL }}
-          from: ${{ secrets.SMTP_FROM }}
+          to:             ${{ secrets.NOTIFY_EMAIL }}
+          from:           ${{ secrets.SMTP_FROM }}
           body: |
             The following new job postings matched your notification keywords:
             ${{ env.matches }}
