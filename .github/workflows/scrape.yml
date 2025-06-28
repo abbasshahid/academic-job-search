@@ -13,7 +13,7 @@ permissions:
 
 env:
   # Comma-separated list of keywords for email notifications (case-insensitive regex)
-  NOTIFY_KEYWORDS: 'professor,lecturer,researcher,fellow'
+  NOTIFY_KEYWORDS: 'phd,graduate,researcher,preadoc,assistant'
 
 jobs:
   build_and_scrape:
@@ -32,6 +32,9 @@ jobs:
           else
             echo '[]' > prev_jobs.json
           fi
+
+      - name: Clear previous matches
+        run: echo "matches=" >> $GITHUB_ENV
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -81,6 +84,21 @@ jobs:
           body: |
             The following new job postings matched your notification keywords:
             ${{ env.matches }}
+
+      - name: Send no-match notification
+        if: env.matches == ''
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port:    ${{ secrets.SMTP_PORT }}
+          username:       ${{ secrets.SMTP_USERNAME }}
+          password:       ${{ secrets.SMTP_PASSWORD }}
+          subject: "Job Update Completed"
+          to:             ${{ secrets.NOTIFY_EMAIL }}
+          from:           ${{ secrets.SMTP_FROM }}
+          body: |
+            The job scraping run has completed successfully, but no new postings matched your notification keywords: ${{ env.NOTIFY_KEYWORDS }}
+
 
       - name: Commit updated jobs JSON
         run: |
