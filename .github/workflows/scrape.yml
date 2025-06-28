@@ -5,7 +5,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: '0 0 * * 0'  # weekly on Sundays at midnight UTC
+    - cron: '0 0 * * 0'    # weekly on Sundays at midnight UTC
   workflow_dispatch: {}
 
 permissions:
@@ -13,7 +13,7 @@ permissions:
 
 env:
   # Comma-separated list of keywords for email notifications (case-insensitive regex)
-  NOTIFY_KEYWORDS: 'professor,lecturer,researcher,fellow'
+  NOTIFY_KEYWORDS: 'phd,graduate,researcher,preadoc'
 
 jobs:
   build_and_scrape:
@@ -25,10 +25,12 @@ jobs:
         with:
           persist-credentials: true
 
-      - name: Save previous jobs JSON (if present)
+      - name: Save previous jobs JSON (if any)
         run: |
           if [ -f src/prebuilt_jobs.json ]; then
             cp src/prebuilt_jobs.json prev_jobs.json
+          else
+            echo '[]' > prev_jobs.json
           fi
 
       - name: Setup Node.js
@@ -36,7 +38,7 @@ jobs:
         with:
           node-version: '16'
 
-      - name: Install scraper dependencies & Playwright
+      - name: Install scraper dependencies & browsers
         working-directory: scraper
         run: |
           npm install
@@ -47,18 +49,24 @@ jobs:
         working-directory: scraper
         run: node server.js
 
-      - name: Detect new job postings matching notification keywords
+      - name: Detect new job postings matching keywords
         id: notify
         run: |
+          # Use slurpfile to load both old and new JSON arrays
           jq -n \
-          --slurpfile old prev_jobs.json \
-          --slurpfile new src/prebuilt_jobs.json \
-          '
-          [ $new[0][] as $item
-           | select((($old[0][] | index($item)) | not))
-           | select($item.title | ascii_downcase | test($ENV.NOTIFY_KEYWORDS; "i"))
-           | "\($item.title) - \($item.url)"
-          ]' > new_matches.json
+            --slurpfile old prev_jobs.json \
+            --slurpfile new src/prebuilt_jobs.json \
+            --arg re "$NOTIFY_KEYWORDS" \
+            '
+            [ 
+              $new[0][] as $item 
+              | select(( $old[0][] | index($item) ) | not)        # only items not in old
+              | select($item.title | ascii_downcase | test($re; "i"))  # matching keywords
+              | "\($item.title) - \($item.url)"
+            ]
+            ' > new_matches.json
+
+          # If there are any matches, expose them to the next step
           if [ -s new_matches.json ]; then
             echo "matches<<EOF" >> $GITHUB_ENV
             jq -r '.[]' new_matches.json >> $GITHUB_ENV
