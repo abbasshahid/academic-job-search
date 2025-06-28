@@ -20,7 +20,35 @@ if (!Array.isArray(careerPages) || !Array.isArray(keywords)) {
   process.exit(1);
 }
 
-// 2) Scrape + handle pagination + keyword filtering\
+// Helper: auto-scroll to bottom to trigger lazy-load
+async function autoScroll(page) {
+  let lastHeight = await page.evaluate('document.body.scrollHeight');
+  while (true) {
+    await page.evaluate('window.scrollTo(0, document.body.scrollHeight)');
+    await page.waitForTimeout(500);
+    const newHeight = await page.evaluate('document.body.scrollHeight');
+    if (newHeight === lastHeight) break;
+    lastHeight = newHeight;
+  }
+}
+
+// Helper: click any "load more" buttons
+async function clickLoadMore(page) {
+  const selectors = [
+    'button:has-text("load more")',
+    'button:has-text("show more")',
+    'a:has-text("more jobs")',
+    'button:has-text("weiter")', // German
+  ];
+  for (const sel of selectors) {
+    while (await page.$(sel)) {
+      await page.click(sel);
+      await page.waitForTimeout(500);
+    }
+  }
+}
+
+// 2) Scrape + handle JS, infinite scroll, load more, pagination + keyword filtering
 async function scrapeAll(pages, kws) {
   const browser = await chromium.launch();
   const page = await browser.newPage();
@@ -40,20 +68,26 @@ async function scrapeAll(pages, kws) {
         break;
       }
 
-      // Extract all <a> tags
-      const anchors = await page.$$eval('a', as =>
-        as.map(a => ({ text: a.textContent?.trim() || '', href: a.href }))
+      // 2a) Ensure JS-rendered content is loaded
+      await autoScroll(page);
+      await clickLoadMore(page);
+
+      // 2b) Extract all links
+      const anchors = await page.$$eval('a', els =>
+        els.map(a => ({ text: a.textContent?.trim() || '', href: a.href }))
       );
       for (const { text, href } of anchors) {
-        if (text && kws.some(kw => text.toLowerCase().includes(kw.toLowerCase()))) {
+        if (!text || !href) continue;
+        const lc = text.toLowerCase();
+        if (kws.some(kw => lc.includes(kw.toLowerCase()))) {
           results.push({ title: text, url: href, source: baseUrl });
           console.log(`  📄 Matched: ${text}`);
         }
       }
 
-      // Find "next" link via rel=next or link text
+      // 2c) Find "next" pagination link
       const nextHandle = await page.$(
-        `a[rel=next], a:has-text("Next"), a:has-text("›"), a:has-text("»")`
+        'a[rel=next], a:has-text("Next"), a:has-text("›"), a:has-text("»")'
       );
       if (nextHandle) {
         const href = await nextHandle.getAttribute('href');
@@ -68,6 +102,7 @@ async function scrapeAll(pages, kws) {
   await browser.close();
   return results;
 }
+
 // 3) Execute one-off scrape and write JSON
 (async () => {
   console.log(`🚀 Starting scrape of ${careerPages.length} pages`);
