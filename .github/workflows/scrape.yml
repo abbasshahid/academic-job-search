@@ -1,16 +1,24 @@
 name: 🕷️ Scrape & Commit Jobs
 
 on:
+  # 1) Immediately after you push changes to main
+  push:
+    branches:
+      - main
+
+  # 2) Then every 6 hours
   schedule:
-    - cron: '0 * * * *'    # every hour
-  workflow_dispatch:
+    - cron: '0 */6 * * *'
+
+  # Also allow manual triggering
+  workflow_dispatch: {}
 
 jobs:
   build_and_scrape:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Setup Node.js
@@ -22,21 +30,20 @@ jobs:
         working-directory: scraper
         run: |
           npm install
-          # Install OS deps needed by Chromium on Ubuntu
+          # Install OS libraries required by Playwright's Chromium
           npx playwright install-deps
           # Download browser binaries
           npx playwright install
 
-      - name: Run scraper in one-off mode
+      - name: Run one-off scrape
         working-directory: scraper
-        run: |
-          # This reads scraper/payload.json and writes src/prebuilt_jobs.json
-          node server.js --once < payload.json
+        run: node server.js
 
-      - name: Commit updated prebuilt_jobs.json
+      - name: Commit updated jobs JSON
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add src/prebuilt_jobs.json
+          # Only commit if there are changes
           git diff --quiet --cached || git commit -m "chore: update prebuilt_jobs.json"
           git push
