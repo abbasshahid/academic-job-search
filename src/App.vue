@@ -1,8 +1,10 @@
 <template>
   <v-app>
     <Header />
+
+    <!-- Replace the static SearchJobs component with router-view -->
     <v-main app>
-      <SearchJobs />
+      <router-view />
     </v-main>
   </v-app>
 </template>
@@ -10,7 +12,6 @@
 <script setup lang="ts">
 import { generalInfoStore } from './store/generalInfo';
 import Header from './components/Header.vue';
-import SearchJobs from './components/SearchJobs.vue';
 import { useTheme } from 'vuetify';
 import { watch } from 'vue';
 
