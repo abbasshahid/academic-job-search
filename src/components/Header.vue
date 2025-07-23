@@ -107,6 +107,7 @@ const usefulLinks = ref([
   { text: 'Daad', href: 'https://www.daad.de/en/' },
   { text: 'Researh in Germany', href: 'https://www.research-in-germany.org/en/your-goal/advanced-research/job-portals.html' },
   { text: 'Italian Calls', href: 'https://bandi.miur.it/doctorate.php/public/cercaFellowship'},
+  { text: 'PhD Scanner', href: ' https://www.phdscanner.com/'}
 
 ]);
 </script>
