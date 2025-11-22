@@ -1,4 +1,4 @@
-name: 🕷️ Scrape, Commit & Notify
+name: 🕷️ Scrape, Commit, Build & Deploy
 
 on:
   push:
@@ -15,7 +15,7 @@ env:
   NOTIFY_KEYWORDS: 'phd,graduate,researcher,preadoc,assistant'
 
 jobs:
-  build_and_scrape:
+  scrape_build_deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,7 +23,9 @@ jobs:
         uses: actions/checkout@v3
         with:
           persist-credentials: true
+          fetch-depth: 0
 
+      # -------- Save old jobs for diff notification --------
       - name: Save previous jobs JSON (if any)
         run: |
           if [ -f public/prebuilt_jobs.json ]; then
@@ -35,22 +37,31 @@ jobs:
       - name: Clear previous matches
         run: echo "matches=" >> $GITHUB_ENV
 
+      # -------- Setup Node --------
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
+          cache: 'npm'
 
+      # -------- Install root deps (for Vite build) --------
+      - name: Install site dependencies
+        run: npm ci
+
+      # -------- Install scraper deps --------
       - name: Install scraper dependencies & Playwright
         working-directory: scraper
         run: |
-          npm install
+          npm ci || npm install
           npx playwright install-deps
           npx playwright install
 
+      # -------- Run scraper --------
       - name: Run scraper (one-off)
         working-directory: scraper
         run: node server.js
 
+      # -------- Detect new matches --------
       - name: Detect new job postings matching notification keywords
         id: notify
         run: |
@@ -70,6 +81,7 @@ jobs:
             echo "EOF" >> $GITHUB_ENV
           fi
 
+      # -------- Email notifications --------
       - name: Send email notification
         if: env.matches != ''
         uses: dawidd6/action-send-mail@v3
@@ -99,6 +111,7 @@ jobs:
           body: |
             The job scraping run has completed successfully, but no new postings matched your notification keywords: ${{ env.NOTIFY_KEYWORDS }}
 
+      # -------- Commit JSON back to main --------
       - name: Commit updated jobs JSON
         run: |
           git config user.name "github-actions[bot]"
@@ -106,3 +119,14 @@ jobs:
           git add public/prebuilt_jobs.json
           git diff --quiet --cached || git commit -m "chore: update prebuilt_jobs.json"
           git push
+
+      # -------- Build site with fresh JSON --------
+      - name: Build site
+        run: npm run build
+
+      # -------- Deploy to GitHub Pages --------
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
