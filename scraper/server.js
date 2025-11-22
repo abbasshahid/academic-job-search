@@ -26,7 +26,7 @@ async function safeGoto(page, url) {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       return await page.goto(url, {
-        waitUntil: 'domcontentloaded',  // ✅ less strict than networkidle
+        waitUntil: 'domcontentloaded', // ✅ avoids networkidle hang
         timeout: 60000
       });
     } catch (e) {
@@ -36,9 +36,6 @@ async function safeGoto(page, url) {
     }
   }
 }
-
-await safeGoto(page, nextUrl);
-await page.waitForTimeout(1500); // let JS render
 
 // Helper: auto-scroll to bottom to trigger lazy-load
 async function autoScroll(page) {
@@ -85,8 +82,11 @@ async function clickLoadMore(page) {
 
 // 2) Scrape + handle JS, infinite scroll, load more, pagination + filtering
 async function scrapeAll(pages, kws) {
-  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-  const page = await browser.newPage();   // ✅ page exists ONLY after this line
+  const browser = await chromium.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
+  const page = await browser.newPage();
   const results = [];
 
   for (const baseUrl of pages) {
@@ -97,18 +97,21 @@ async function scrapeAll(pages, kws) {
       visited.add(nextUrl);
       console.log(`🔗 Visiting ${nextUrl}`);
 
-      // ✅ THIS is where the try/catch goes
+      // ✅ correct try/catch placement
       try {
         await safeGoto(page, nextUrl);
+        await page.waitForTimeout(1500); // give JS a moment
       } catch (err) {
         console.error(`⚠️ Failed to load ${nextUrl}: ${err.message}`);
         nextUrl = null;   // skip only this baseUrl
         continue;
       }
 
+      // Ensure JS-rendered content is loaded
       await autoScroll(page);
       await clickLoadMore(page);
 
+      // Extract all links
       const anchors = await page.$$eval('a', els =>
         els.map(a => ({ text: a.textContent?.trim() || '', href: a.href }))
       );
@@ -122,6 +125,7 @@ async function scrapeAll(pages, kws) {
         }
       }
 
+      // Find "next" pagination link
       const nextHandle = await page.$(
         'a[rel=next], a:has-text("Next"), a:has-text("›"), a:has-text("»")'
       );
@@ -139,16 +143,16 @@ async function scrapeAll(pages, kws) {
   return results;
 }
 
-
 // 3) Execute one-off scrape and write JSON
 (async () => {
   console.log(`🚀 Starting scrape of ${careerPages.length} pages`);
   try {
     const jobs = await scrapeAll(careerPages, keywords);
 
+    // ✅ write to public/ so Vite/GitHub Pages serves it
     const outPath = path.resolve(__dirname, '..', 'public', 'prebuilt_jobs.json');
 
-    // ✅ ensure public/ exists in GitHub Actions runner
+    // ✅ ensure folder exists
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
 
     fs.writeFileSync(outPath, JSON.stringify(jobs, null, 2), 'utf-8');
@@ -159,4 +163,3 @@ async function scrapeAll(pages, kws) {
     process.exit(1);
   }
 })();
-
