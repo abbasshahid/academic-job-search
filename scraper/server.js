@@ -137,7 +137,7 @@ async function scrapeAll(pages, kws) {
   console.log(`🚀 Starting scrape of ${careerPages.length} pages`);
   try {
     const jobs = await scrapeAll(careerPages, keywords);
-    const outPath = path.resolve(__dirname, '..', 'src', 'prebuilt_jobs.json');
+    const outPath = path.resolve(__dirname, '..', 'public', 'prebuilt_jobs.json');
     fs.writeFileSync(outPath, JSON.stringify(jobs, null, 2), 'utf-8');
     console.log(`✅ Wrote ${jobs.length} jobs to ${outPath}`);
     process.exit(0);
