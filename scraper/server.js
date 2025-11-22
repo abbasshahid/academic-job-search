@@ -86,7 +86,7 @@ async function clickLoadMore(page) {
 // 2) Scrape + handle JS, infinite scroll, load more, pagination + filtering
 async function scrapeAll(pages, kws) {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-  const page = await browser.newPage();
+  const page = await browser.newPage();   // ✅ page exists ONLY after this line
   const results = [];
 
   for (const baseUrl of pages) {
@@ -96,23 +96,23 @@ async function scrapeAll(pages, kws) {
     while (nextUrl && !visited.has(nextUrl)) {
       visited.add(nextUrl);
       console.log(`🔗 Visiting ${nextUrl}`);
+
+      // ✅ THIS is where the try/catch goes
       try {
         await safeGoto(page, nextUrl);
       } catch (err) {
         console.error(`⚠️ Failed to load ${nextUrl}: ${err.message}`);
-        // ✅ Skip this broken URL and continue to next baseUrl
-        nextUrl = null;
-        continue;  
+        nextUrl = null;   // skip only this baseUrl
+        continue;
       }
 
-      // 2a) Ensure JS-rendered content is loaded
       await autoScroll(page);
       await clickLoadMore(page);
 
-      // 2b) Extract all links
       const anchors = await page.$$eval('a', els =>
         els.map(a => ({ text: a.textContent?.trim() || '', href: a.href }))
       );
+
       for (const { text, href } of anchors) {
         if (!text || !href) continue;
         const lc = text.toLowerCase();
@@ -122,7 +122,6 @@ async function scrapeAll(pages, kws) {
         }
       }
 
-      // 2c) Find "next" pagination link
       const nextHandle = await page.$(
         'a[rel=next], a:has-text("Next"), a:has-text("›"), a:has-text("»")'
       );
@@ -139,6 +138,7 @@ async function scrapeAll(pages, kws) {
   await browser.close();
   return results;
 }
+
 
 // 3) Execute one-off scrape and write JSON
 (async () => {
