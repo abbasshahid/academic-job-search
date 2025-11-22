@@ -25,7 +25,10 @@ async function safeGoto(page, url) {
   const maxAttempts = 3;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      return await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
+      return await page.goto(url, {
+        waitUntil: 'domcontentloaded',  // ✅ less strict than networkidle
+        timeout: 60000
+      });
     } catch (e) {
       console.warn(`⚠️ goto attempt ${attempt} for ${url} failed: ${e.message}`);
       if (attempt === maxAttempts) throw e;
@@ -33,6 +36,9 @@ async function safeGoto(page, url) {
     }
   }
 }
+
+await safeGoto(page, nextUrl);
+await page.waitForTimeout(1500); // let JS render
 
 // Helper: auto-scroll to bottom to trigger lazy-load
 async function autoScroll(page) {
@@ -94,7 +100,9 @@ async function scrapeAll(pages, kws) {
         await safeGoto(page, nextUrl);
       } catch (err) {
         console.error(`⚠️ Failed to load ${nextUrl}: ${err.message}`);
-        break;
+        // ✅ Skip this broken URL and continue to next baseUrl
+        nextUrl = null;
+        continue;  
       }
 
       // 2a) Ensure JS-rendered content is loaded
@@ -137,7 +145,12 @@ async function scrapeAll(pages, kws) {
   console.log(`🚀 Starting scrape of ${careerPages.length} pages`);
   try {
     const jobs = await scrapeAll(careerPages, keywords);
+
     const outPath = path.resolve(__dirname, '..', 'public', 'prebuilt_jobs.json');
+
+    // ✅ ensure public/ exists in GitHub Actions runner
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+
     fs.writeFileSync(outPath, JSON.stringify(jobs, null, 2), 'utf-8');
     console.log(`✅ Wrote ${jobs.length} jobs to ${outPath}`);
     process.exit(0);
@@ -146,3 +159,4 @@ async function scrapeAll(pages, kws) {
     process.exit(1);
   }
 })();
+
