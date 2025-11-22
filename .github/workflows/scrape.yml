@@ -12,7 +12,6 @@ permissions:
   contents: write
 
 env:
-  # Comma-separated list of keywords for email notifications (case-insensitive regex)
   NOTIFY_KEYWORDS: 'phd,graduate,researcher,preadoc,assistant'
 
 jobs:
@@ -27,8 +26,8 @@ jobs:
 
       - name: Save previous jobs JSON (if any)
         run: |
-          if [ -f src/prebuilt_jobs.json ]; then
-            cp src/prebuilt_jobs.json prev_jobs.json
+          if [ -f public/prebuilt_jobs.json ]; then
+            cp public/prebuilt_jobs.json prev_jobs.json
           else
             echo '[]' > prev_jobs.json
           fi
@@ -55,18 +54,19 @@ jobs:
       - name: Detect new job postings matching notification keywords
         id: notify
         run: |
-          # Diff previous vs new, then filter by NOTIFY_KEYWORDS
-          jq -n --slurpfile old prev_jobs.json --slurpfile new src/prebuilt_jobs.json --arg re "$NOTIFY_KEYWORDS" '
+          jq -n \
+            --slurpfile old prev_jobs.json \
+            --slurpfile new public/prebuilt_jobs.json \
+            --arg re "$NOTIFY_KEYWORDS" '
             [ $new[0][] as $item
               | select( ($old[0] | index($item)) | not )
               | select($item.title | ascii_downcase | test($re; "i"))
               | "\($item.title) - \($item.url)"
             ]' > new_matches.json
 
-          # Export matches for email step
           if [ -s new_matches.json ]; then
             echo "matches<<EOF" >> $GITHUB_ENV
-            jq -r '.[]' new_matches.json >> $GITHUB_ENV
+            jq -r ".[]" new_matches.json >> $GITHUB_ENV
             echo "EOF" >> $GITHUB_ENV
           fi
 
@@ -99,11 +99,10 @@ jobs:
           body: |
             The job scraping run has completed successfully, but no new postings matched your notification keywords: ${{ env.NOTIFY_KEYWORDS }}
 
-
       - name: Commit updated jobs JSON
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add src/prebuilt_jobs.json
+          git add public/prebuilt_jobs.json
           git diff --quiet --cached || git commit -m "chore: update prebuilt_jobs.json"
           git push
