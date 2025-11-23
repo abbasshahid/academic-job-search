@@ -43,7 +43,7 @@
           <v-card-text class="pb-0">
             <v-text-field
               v-model="keywordInput"
-              label="Keywords (comma-separated)"
+              label="Keywords"
               placeholder="e.g. professor, researcher"
               dense
               outlined
@@ -196,8 +196,9 @@ function onSearch() {
   page.value = 1;
 
   const kws = keywordInput.value
-    .split(',')
-    .map(k => k.trim().toLowerCase())
+    .toLowerCase()
+    .split(/[\s,;\/]+/)   // split on ANY spaces, commas, semicolons, slashes
+    .map(k => k.trim())
     .filter(Boolean);
 
   let pool = [...prebuiltJobs.value];

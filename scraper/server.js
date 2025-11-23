@@ -39,15 +39,32 @@ async function safeGoto(page, url) {
 
 // Helper: auto-scroll to bottom to trigger lazy-load
 async function autoScroll(page) {
-  let lastHeight = await page.evaluate('document.body.scrollHeight');
-  while (true) {
-    await page.evaluate('window.scrollTo(0, document.body.scrollHeight)');
-    await page.waitForTimeout(500);
-    const newHeight = await page.evaluate('document.body.scrollHeight');
-    if (newHeight === lastHeight) break;
-    lastHeight = newHeight;
+  try {
+    let lastHeight = await page.evaluate(() => document.body.scrollHeight);
+
+    for (let i = 0; i < 20; i++) { // hard cap so it can't loop forever
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await page.waitForTimeout(600);
+
+      let newHeight;
+      try {
+        newHeight = await page.evaluate(() => document.body.scrollHeight);
+      } catch (e) {
+        // Navigation happened mid-scroll → stop scrolling this page
+        if (String(e).includes('Execution context was destroyed')) return;
+        throw e;
+      }
+
+      if (newHeight === lastHeight) break;
+      lastHeight = newHeight;
+    }
+  } catch (e) {
+    // If navigation/reload kills context, just skip scrolling
+    if (String(e).includes('Execution context was destroyed')) return;
+    throw e;
   }
 }
+
 
 // Helper: click any "load more" buttons when visible and enabled
 async function clickLoadMore(page) {
@@ -108,8 +125,14 @@ async function scrapeAll(pages, kws) {
       }
 
       // Ensure JS-rendered content is loaded
-      await autoScroll(page);
-      await clickLoadMore(page);
+      try { await autoScroll(page); } catch (e) {
+        console.warn(`⚠️ autoScroll skipped due to: ${e.message}`);
+      }
+
+      try { await clickLoadMore(page); } catch (e) {
+        console.warn(`⚠️ clickLoadMore skipped due to: ${e.message}`);
+      }
+
 
       // Extract all links
       const anchors = await page.$$eval('a', els =>
