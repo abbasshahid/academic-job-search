@@ -7,6 +7,13 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// --------------------
+// Global safety limits
+// --------------------
+const MAX_LOAD_MORE_CLICKS_PER_PAGE = 25;  // prevents infinite "weiter" clicking
+const MAX_PAGES_PER_SITE = 50;             // prevents infinite pagination loops
+const WAIT_AFTER_CLICK_MS = 900;           // allow DOM to update
+
 // 1) Load payload.json for your careerPages + keywords
 const payloadPath = path.resolve(__dirname, 'payload.json');
 if (!fs.existsSync(payloadPath)) {
@@ -26,8 +33,8 @@ async function safeGoto(page, url) {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       return await page.goto(url, {
-        waitUntil: 'domcontentloaded', // ✅ avoids networkidle hang
-        timeout: 60000
+        waitUntil: 'domcontentloaded', // avoids networkidle hangs
+        timeout: 60000,
       });
     } catch (e) {
       console.warn(`⚠️ goto attempt ${attempt} for ${url} failed: ${e.message}`);
@@ -50,7 +57,6 @@ async function autoScroll(page) {
       try {
         newHeight = await page.evaluate(() => document.body.scrollHeight);
       } catch (e) {
-        // Navigation happened mid-scroll → stop scrolling this page
         if (String(e).includes('Execution context was destroyed')) return;
         throw e;
       }
@@ -59,68 +65,109 @@ async function autoScroll(page) {
       lastHeight = newHeight;
     }
   } catch (e) {
-    // If navigation/reload kills context, just skip scrolling
     if (String(e).includes('Execution context was destroyed')) return;
     throw e;
   }
 }
 
-
-// Helper: click any "load more" buttons when visible and enabled
+/**
+ * Safer "Load more" clicker:
+ * - uses locators (stable)
+ * - stops if clicking doesn't increase link count (no new content)
+ * - max clicks guard
+ */
 async function clickLoadMore(page) {
   const selectors = [
     'button:has-text("load more")',
     'button:has-text("show more")',
     'a:has-text("more jobs")',
     'button:has-text("weiter")', // German
+    'a:has-text("weiter")',
+    'button:has-text("mehr")',
+    'a:has-text("mehr")',
   ];
-  let clicked;
-  do {
-    clicked = false;
+
+  // Measure page "growth" using number of anchors. It's generic and works widely.
+  const getAnchorCount = async () => page.locator('a').count();
+
+  let clicks = 0;
+  let lastCount = await getAnchorCount();
+
+  while (clicks < MAX_LOAD_MORE_CLICKS_PER_PAGE) {
+    let clickedSomething = false;
+
     for (const sel of selectors) {
-      const handles = await page.$$(sel);
-      for (const handle of handles) {
-        try {
-          if (await handle.isVisible() && await handle.isEnabled()) {
-            await handle.click();
-            console.log(`  🎉 Clicked load-more selector: ${sel}`);
-            await page.waitForTimeout(500);
-            clicked = true;
-            break;
+      const loc = page.locator(sel).first();
+      const isVisible = await loc.isVisible().catch(() => false);
+      if (!isVisible) continue;
+
+      // Some sites keep the element but disable it; isEnabled helps.
+      const isEnabled = await loc.isEnabled().catch(() => true); // if unsupported, assume true
+      if (!isEnabled) continue;
+
+      try {
+        await loc.scrollIntoViewIfNeeded();
+        await loc.click({ timeout: 15000 });
+        clicks++;
+        clickedSomething = true;
+        console.log(`  🎉 Clicked load-more selector: ${sel}`);
+
+        await page.waitForTimeout(WAIT_AFTER_CLICK_MS);
+
+        const newCount = await getAnchorCount();
+
+        // If nothing changed, stop trying — prevents infinite loop
+        if (newCount <= lastCount) {
+          // Try one short extra wait in case content loads slightly later
+          await page.waitForTimeout(900);
+          const retryCount = await getAnchorCount();
+          if (retryCount <= lastCount) {
+            console.log('  🛑 Load-more produced no new content. Stopping load-more on this page.');
+            return;
           }
-        } catch (e) {
-          // ignore errors on clicking invisible elements
+          lastCount = retryCount;
+        } else {
+          lastCount = newCount;
         }
+
+        break; // clicked one control; re-scan selectors from start
+      } catch (e) {
+        // If click fails, try other selectors
       }
-      if (clicked) break;
     }
-  } while (clicked);
+
+    if (!clickedSomething) return; // nothing found -> stop
+  }
+
+  console.log(`  🛑 Reached max load-more clicks (${MAX_LOAD_MORE_CLICKS_PER_PAGE}). Stopping load-more.`);
 }
 
 // 2) Scrape + handle JS, infinite scroll, load more, pagination + filtering
 async function scrapeAll(pages, kws) {
   const browser = await chromium.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
   const page = await browser.newPage();
   const results = [];
+  const seenJobUrls = new Set(); // dedupe across the whole run
 
   for (const baseUrl of pages) {
     let nextUrl = baseUrl;
     const visited = new Set();
+    let pageCounter = 0;
 
-    while (nextUrl && !visited.has(nextUrl)) {
+    while (nextUrl && !visited.has(nextUrl) && pageCounter < MAX_PAGES_PER_SITE) {
+      pageCounter++;
       visited.add(nextUrl);
       console.log(`🔗 Visiting ${nextUrl}`);
 
-      // ✅ correct try/catch placement
       try {
         await safeGoto(page, nextUrl);
-        await page.waitForTimeout(1500); // give JS a moment
+        await page.waitForTimeout(1200);
       } catch (err) {
         console.error(`⚠️ Failed to load ${nextUrl}: ${err.message}`);
-        nextUrl = null;   // skip only this baseUrl
+        nextUrl = null;
         continue;
       }
 
@@ -129,36 +176,53 @@ async function scrapeAll(pages, kws) {
         console.warn(`⚠️ autoScroll skipped due to: ${e.message}`);
       }
 
+      // Click load more safely (no infinite loops)
       try { await clickLoadMore(page); } catch (e) {
         console.warn(`⚠️ clickLoadMore skipped due to: ${e.message}`);
       }
 
-
       // Extract all links
-      const anchors = await page.$$eval('a', els =>
-        els.map(a => ({ text: a.textContent?.trim() || '', href: a.href }))
-      );
+      let anchors = [];
+      try {
+        anchors = await page.$$eval('a', els =>
+          els.map(a => ({ text: a.textContent?.trim() || '', href: a.href }))
+        );
+      } catch (e) {
+        console.warn(`⚠️ Failed to extract anchors on ${nextUrl}: ${e.message}`);
+      }
 
       for (const { text, href } of anchors) {
         if (!text || !href) continue;
+
         const lc = text.toLowerCase();
-        if (kws.some(kw => lc.includes(kw.toLowerCase()))) {
-          results.push({ title: text, url: href, source: baseUrl });
-          console.log(`  📄 Matched: ${text}`);
+        if (kws.some(kw => lc.includes(String(kw).toLowerCase()))) {
+          // Deduplicate by job URL
+          if (!seenJobUrls.has(href)) {
+            seenJobUrls.add(href);
+            results.push({ title: text, url: href, source: baseUrl });
+            console.log(`  📄 Matched: ${text}`);
+          }
         }
       }
 
-      // Find "next" pagination link
-      const nextHandle = await page.$(
-        'a[rel=next], a:has-text("Next"), a:has-text("›"), a:has-text("»")'
-      );
-      if (nextHandle) {
-        const href = await nextHandle.getAttribute('href');
+      // Find "next" pagination link (generic)
+      const nextLocator = page.locator(
+        'a[rel=next], a:has-text("Next"), a:has-text("›"), a:has-text("»"), a:has-text("Weiter"), a:has-text("Nächste")'
+      ).first();
+
+      const hasNext = await nextLocator.isVisible().catch(() => false);
+
+      if (hasNext) {
+        const href = await nextLocator.getAttribute('href');
         nextUrl = href ? new URL(href, nextUrl).href : null;
         console.log(`  ⏭ Next page: ${nextUrl}`);
       } else {
         nextUrl = null;
       }
+    }
+
+    if (pageCounter >= MAX_PAGES_PER_SITE) {
+      console.warn(`⚠️ Reached MAX_PAGES_PER_SITE (${MAX_PAGES_PER_SITE}) for ${baseUrl}. Moving on.`);
     }
   }
 
@@ -172,10 +236,10 @@ async function scrapeAll(pages, kws) {
   try {
     const jobs = await scrapeAll(careerPages, keywords);
 
-    // ✅ write to public/ so Vite/GitHub Pages serves it
+    // write to public/ so Vite/GitHub Pages serves it
     const outPath = path.resolve(__dirname, '..', 'public', 'prebuilt_jobs.json');
 
-    // ✅ ensure folder exists
+    // ensure folder exists
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
 
     fs.writeFileSync(outPath, JSON.stringify(jobs, null, 2), 'utf-8');
