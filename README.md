@@ -1,76 +1,63 @@
-# Academic Job Search Aggregator
+# Academic Job Search
 
-A lightweight, **front-end-only** Vue 3 + Vite application that crawls a curated list of university and research-institute career pages in your browser, filters links by your keywords, and displays matching job postings—no backend required.
+Academic job search is a static Vue 3 + Vite application backed by a scheduled Playwright scraper.
+The scraper collects job-like links from curated university and research career pages, enriches them
+with source metadata, and writes a publishable `public/prebuilt_jobs.json` file. The frontend then
+searches that static dataset without requiring a live backend.
 
----
+## Architecture
 
-## 📖 Table of Contents
+- `scraper/` runs the Playwright scraper and writes the static payload.
+- `shared/sourceCatalog.json` is the shared source metadata catalog used by both scraper and frontend.
+- `public/prebuilt_jobs.json` is the deployable dataset consumed by the app.
+- `src/` contains the Vue frontend, source-aware filters, saved searches, favorites, exports, and source dashboard.
 
-1. [Demo](#-demo)  
-2. [Features](#-features)  
-3. [Tech Stack](#-tech-stack)  
-4. [Getting Started](#-getting-started)  
-   - [Prerequisites](#prerequisites)  
-   - [Install](#install)  
-   - [Run Locally](#run-locally)  
-5. [Project Structure](#-project-structure)  
-6. [Usage](#-usage)  
-7. [Deployment](#-deployment)  
-   - [GitHub Pages (gh-pages)](#github-pages-gh-pages)  
-   - [GitHub Pages (docs/ folder)](#github-pages-docs-folder)  
-8. [Configuration](#-configuration)  
-9. [CORS / Proxy](#-cors--proxy)  
-10. [Contributing](#-contributing)  
-11. [License](#-license)  
-12. [Contact](#-contact)  
+## Frontend Features
 
----
+- Keyword search with `any` or `all` matching
+- Country, institution, and role-type filters
+- Sorting by relevance, deadline, title, country, institution, or scrape recency
+- Saved searches persisted in local storage
+- Favorites persisted in local storage
+- “New job” tracking based on previously seen results
+- CSV and JSON export of the current result set
+- Source catalog dashboard with per-source indexed counts
 
-## 🚀 Demo
+## Scraper Pipeline
 
-![Search UI screenshot](./screenshot.png)
+1. `scraper/payload.json` defines the source pages and seed keywords.
+2. `npm run generate:sources` rebuilds `shared/sourceCatalog.json`.
+3. `npm --prefix scraper run scrape` crawls the source pages and writes `public/prebuilt_jobs.json`.
+4. `npm run validate:data` validates the generated payload structure.
 
-Type keywords (e.g. `postdoc, blockchain`) and click **Search**. The app will:
+## Getting Started
 
-1. Load each URL from `career_pages.json`  
-2. Fetch & parse the HTML in-browser  
-3. Extract all `<a>` links whose text contains any keyword  
-4. Display title, link, and source page  
-
----
-
-## ✨ Features
-
-- **Keyword filtering**: comma-separated, case-insensitive  
-- **Automated crawling**: iterates a JSON list of URLs  
-- **Client-side parsing**: uses `fetch` + `DOMParser`—no server needed  
-- **Progress indicator**: shows “Processing page X/Y”  
-- **Zero-config**: clone → install → run  
-
----
-
-## 🛠 Tech Stack
-
-- **Vue 3** with Composition API  
-- **TypeScript** for static typing  
-- **Vite** for fast dev & builds  
-- **Tailwind-style utility classes** for simple styling  
-
----
-
-## 🏁 Getting Started
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) v14+  
-- npm (bundled with Node.js)
-
-### Install
+### Frontend
 
 ```bash
-# Clone your fork / this repo
-git clone git@github.com:<your-username>/academic-job-search.git
-cd academic-job-search
-
-# Install dependencies
 npm install
+npm run dev
+```
+
+### Scraper
+
+```bash
+cd scraper
+npm install
+npm run scrape
+```
+
+## Important Files
+
+- `src/components/SearchJobs.vue`
+- `src/components/Sources.vue`
+- `src/utils/jobData.ts`
+- `shared/sourceCatalog.json`
+- `scraper/lib/scrape.js`
+- `scraper/lib/normalize.js`
+
+## Notes
+
+- The project is intentionally a static-site architecture. There is no runtime API layer.
+- Existing legacy `prebuilt_jobs.json` arrays are still supported by the frontend loader, but the scraper now emits a richer object payload with metadata and stats.
+- Source metadata is no longer inferred in the UI from host suffixes alone.

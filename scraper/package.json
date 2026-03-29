@@ -3,15 +3,15 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "scrape": "node server.js",
+    "start": "npm run scrape"
   },
   "dependencies": {
-    "express": "^4.21.2",
     "playwright": "^1.53.1"
   },
   "main": "server.js",
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "Scheduled Playwright scraper that writes the static prebuilt_jobs.json payload."
 }
