@@ -3,7 +3,7 @@
     <Header />
 
     <!-- Replace the static SearchJobs component with router-view -->
-    <v-main app>
+    <v-main>
       <router-view />
     </v-main>
   </v-app>
@@ -33,10 +33,14 @@ watch(
 <style>
 /* Global theme classes */
 .v-application.light {
-  background-color: #fafafa;
+  background-color: #eef2f6;
 }
 .v-application.dark {
-  background-color: #121212;
+  background-color: #121d2b;
   color: #fff;
+}
+
+.v-main {
+  background: transparent !important;
 }
 </style>
