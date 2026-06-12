@@ -44,14 +44,16 @@ jobs:
           node-version: '18'
 
       # -------- Install root deps (for Vite build) --------
+      # Use `npm install`, not `npm ci`: package-lock.json is intentionally
+      # gitignored in this repo, and `npm ci` aborts when no lockfile is present.
       - name: Install site dependencies
-        run: npm ci
+        run: npm install
 
       # -------- Install scraper deps --------
       - name: Install scraper dependencies & Playwright
         working-directory: scraper
         run: |
-          npm ci || npm install
+          npm install
           npx playwright install-deps
           npx playwright install
 
