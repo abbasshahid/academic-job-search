@@ -49,6 +49,52 @@ function inferRoleTypes(title, sourceTags = []) {
   return Array.from(roles);
 }
 
+// Best-effort discipline/field inference from a job title. Kept in sync with
+// src/utils/jobData.ts so scraped data and client-side data label fields the
+// same way. Ordered most-specific first; returns null when nothing matches.
+const FIELD_RULES = [
+  { label: 'Artificial Intelligence', pattern: /artificial intelligence|machine learning|deep learning|\bai\b|computer vision|natural language|\bnlp\b|reinforcement learning/ },
+  { label: 'Data Science', pattern: /data science|data scientist|big data|data analyt|data engineer/ },
+  { label: 'Cybersecurity', pattern: /cyber|cryptograph|cryptolog|information security|\bit[- ]security\b/ },
+  { label: 'Blockchain', pattern: /blockchain|distributed ledger|\bdlt\b|cryptocurrenc/ },
+  { label: 'Bioinformatics', pattern: /bioinformatic|computational biolog|systems biolog/ },
+  { label: 'Computer Science', pattern: /computer science|informatic|informatik|computing|software|comput(er|ing)|\bhci\b|human[- ]computer|robotic|\bsecurity\b/ },
+  { label: 'Statistics', pattern: /statistic|biostatistic|econometric/ },
+  { label: 'Mathematics', pattern: /mathematic|mathematik|\bmaths?\b|stochastic|numerical analysis|geometry|algebra|topology/ },
+  { label: 'Physics', pattern: /physics|physik|quantum|photonic|astrophysic|particle physic|condensed matter|\boptics\b/ },
+  { label: 'Chemistry', pattern: /chemistry|chemie|chemical|electrochem|catalysis|catalytic/ },
+  { label: 'Neuroscience', pattern: /neuroscience|neurolog|cognitive science/ },
+  { label: 'Biology', pattern: /biolog|life science|molecular biolog|genetic|genomic|microbiolog|biochem|cell biolog|immunolog|botan|zoolog|biotechnolog/ },
+  { label: 'Medicine & Health', pattern: /medicine|medical|clinical|oncolog|cardiolog|radiolog|surgery|nursing|pharmacolog|pharmac|epidemiolog|public health|healthcare|health care|psychiatr|dentist|biomedical/ },
+  { label: 'Materials Science', pattern: /materials? science|nanomaterial|metallurg|polymer science/ },
+  { label: 'Energy', pattern: /\benergy\b|renewable|photovoltaic|battery|hydrogen|solar|wind power|fuel cell/ },
+  { label: 'Environmental Science', pattern: /environment|climate|sustainab|geoscience|geolog|geophysic|atmospher|oceanograph|hydrolog|ecolog|earth science/ },
+  { label: 'Engineering', pattern: /engineering|ingenieur|mechanical|electrical|electronic|civil engineer|aerospace|mechatronic|automotive|manufacturing/ },
+  { label: 'Economics & Finance', pattern: /econom|finance|financial|accounting|banking/ },
+  { label: 'Business & Management', pattern: /management|business|marketing|entrepreneur|supply chain|logistic|operations research/ },
+  { label: 'Law', pattern: /\blaw\b|lawyer|legal|jurisprudence|rechtswissenschaft/ },
+  { label: 'Psychology', pattern: /psycholog/ },
+  { label: 'Sociology', pattern: /sociolog|social science|social work/ },
+  { label: 'Political Science', pattern: /political science|politics|international relations|public policy/ },
+  { label: 'Education', pattern: /education|pedagog|didactic/ },
+  { label: 'Linguistics', pattern: /linguistic|philolog|language science/ },
+  { label: 'History', pattern: /\bhistory\b|historical/ },
+  { label: 'Philosophy', pattern: /philosoph/ },
+  { label: 'Arts & Humanities', pattern: /humanities|literature|art history|musicolog|cultural studies|archaeolog|theolog/ },
+  { label: 'Agriculture & Food', pattern: /agricultur|agronom|forestry|horticultur|veterinar|food science/ },
+  { label: 'Architecture & Planning', pattern: /architectur|urban planning|urban design|spatial planning/ },
+];
+
+function inferField(title) {
+  const text = normalizeTitle(title);
+  for (const rule of FIELD_RULES) {
+    if (rule.pattern.test(text)) {
+      return rule.label;
+    }
+  }
+  return null;
+}
+
 function extractDeadline(title) {
   const match = title.match(/(\d{2})\.(\d{2})\.(\d{4})/);
   if (!match) {
@@ -106,6 +152,7 @@ export function buildJobRecord({ title, href, sourceUrl, generatedAt }) {
   };
   const cleanTitle = compactWhitespace(title);
   const roleTypes = inferRoleTypes(cleanTitle, sourceMeta?.tags ?? []);
+  const field = inferField(cleanTitle);
 
   return {
     id: buildHash(`${href}::${normalizeTitle(cleanTitle)}`),
@@ -119,11 +166,13 @@ export function buildJobRecord({ title, href, sourceUrl, generatedAt }) {
         sourceMeta.institution,
         sourceMeta.countryName,
         sourceMeta.platform,
+        field ?? '',
         roleTypes.join(' '),
       ].join(' ')
     ).toLowerCase(),
     keywordTokens: tokenizeKeywords(cleanTitle),
     roleTypes,
+    field,
     sourceMeta,
     department: null,
     location: sourceMeta.countryName,

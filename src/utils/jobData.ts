@@ -11,6 +11,7 @@ interface RawJob {
   searchableText?: string;
   keywordTokens?: string[];
   roleTypes?: RoleType[];
+  field?: string | null;
   sourceMeta?: SourceMetadata;
   department?: string | null;
   location?: string | null;
@@ -81,6 +82,53 @@ export function inferRoleTypes(title: string, sourceTags: string[] = []): RoleTy
   return Array.from(roles);
 }
 
+// Best-effort discipline/field inference from a job title, ordered from most
+// specific to most general so compound topics win (e.g. "machine learning"
+// resolves to AI rather than the broader Computer Science). Returns null when
+// nothing matches confidently, so the UI simply shows no field label.
+const FIELD_RULES: Array<{ label: string; pattern: RegExp }> = [
+  { label: 'Artificial Intelligence', pattern: /artificial intelligence|machine learning|deep learning|\bai\b|computer vision|natural language|\bnlp\b|reinforcement learning/ },
+  { label: 'Data Science', pattern: /data science|data scientist|big data|data analyt|data engineer/ },
+  { label: 'Cybersecurity', pattern: /cyber|cryptograph|cryptolog|information security|\bit[- ]security\b/ },
+  { label: 'Blockchain', pattern: /blockchain|distributed ledger|\bdlt\b|cryptocurrenc/ },
+  { label: 'Bioinformatics', pattern: /bioinformatic|computational biolog|systems biolog/ },
+  { label: 'Computer Science', pattern: /computer science|informatic|informatik|computing|software|comput(er|ing)|\bhci\b|human[- ]computer|robotic|\bsecurity\b/ },
+  { label: 'Statistics', pattern: /statistic|biostatistic|econometric/ },
+  { label: 'Mathematics', pattern: /mathematic|mathematik|\bmaths?\b|stochastic|numerical analysis|geometry|algebra|topology/ },
+  { label: 'Physics', pattern: /physics|physik|quantum|photonic|astrophysic|particle physic|condensed matter|\boptics\b/ },
+  { label: 'Chemistry', pattern: /chemistry|chemie|chemical|electrochem|catalysis|catalytic/ },
+  { label: 'Neuroscience', pattern: /neuroscience|neurolog|cognitive science/ },
+  { label: 'Biology', pattern: /biolog|life science|molecular biolog|genetic|genomic|microbiolog|biochem|cell biolog|immunolog|botan|zoolog|biotechnolog/ },
+  { label: 'Medicine & Health', pattern: /medicine|medical|clinical|oncolog|cardiolog|radiolog|surgery|nursing|pharmacolog|pharmac|epidemiolog|public health|healthcare|health care|psychiatr|dentist|biomedical/ },
+  { label: 'Materials Science', pattern: /materials? science|nanomaterial|metallurg|polymer science/ },
+  { label: 'Energy', pattern: /\benergy\b|renewable|photovoltaic|battery|hydrogen|solar|wind power|fuel cell/ },
+  { label: 'Environmental Science', pattern: /environment|climate|sustainab|geoscience|geolog|geophysic|atmospher|oceanograph|hydrolog|ecolog|earth science/ },
+  { label: 'Engineering', pattern: /engineering|ingenieur|mechanical|electrical|electronic|civil engineer|aerospace|mechatronic|automotive|manufacturing/ },
+  { label: 'Economics & Finance', pattern: /econom|finance|financial|accounting|banking/ },
+  { label: 'Business & Management', pattern: /management|business|marketing|entrepreneur|supply chain|logistic|operations research/ },
+  { label: 'Law', pattern: /\blaw\b|lawyer|legal|jurisprudence|rechtswissenschaft/ },
+  { label: 'Psychology', pattern: /psycholog/ },
+  { label: 'Sociology', pattern: /sociolog|social science|social work/ },
+  { label: 'Political Science', pattern: /political science|politics|international relations|public policy/ },
+  { label: 'Education', pattern: /education|pedagog|didactic/ },
+  { label: 'Linguistics', pattern: /linguistic|philolog|language science/ },
+  { label: 'History', pattern: /\bhistory\b|historical/ },
+  { label: 'Philosophy', pattern: /philosoph/ },
+  { label: 'Arts & Humanities', pattern: /humanities|literature|art history|musicolog|cultural studies|archaeolog|theolog/ },
+  { label: 'Agriculture & Food', pattern: /agricultur|agronom|forestry|horticultur|veterinar|food science/ },
+  { label: 'Architecture & Planning', pattern: /architectur|urban planning|urban design|spatial planning/ },
+];
+
+export function inferField(title: string): string | null {
+  const text = normalizeTitle(title);
+  for (const rule of FIELD_RULES) {
+    if (rule.pattern.test(text)) {
+      return rule.label;
+    }
+  }
+  return null;
+}
+
 export function extractDeadline(title: string): string | null {
   const match = title.match(/(\d{2})\.(\d{2})\.(\d{4})/);
   if (!match) {
@@ -104,7 +152,7 @@ export function inferEmploymentType(title: string): string | null {
   return null;
 }
 
-function buildSearchableText(job: Pick<Job, 'title' | 'sourceMeta' | 'department' | 'employmentType' | 'roleTypes'>): string {
+function buildSearchableText(job: Pick<Job, 'title' | 'sourceMeta' | 'department' | 'employmentType' | 'roleTypes' | 'field'>): string {
   return compactWhitespace(
     [
       job.title,
@@ -113,6 +161,7 @@ function buildSearchableText(job: Pick<Job, 'title' | 'sourceMeta' | 'department
       job.sourceMeta.platform,
       job.department ?? '',
       job.employmentType ?? '',
+      job.field ?? '',
       job.roleTypes.join(' '),
     ].join(' ')
   ).toLowerCase();
@@ -135,6 +184,7 @@ export function enrichJob(rawJob: RawJob, generatedAt: string): Job {
     searchableText: rawJob.searchableText ?? '',
     keywordTokens: rawJob.keywordTokens?.length ? rawJob.keywordTokens : tokenizeKeywords(rawJob.title),
     roleTypes,
+    field: rawJob.field ?? inferField(rawJob.title),
     sourceMeta,
     department: rawJob.department ?? null,
     location: rawJob.location ?? null,

@@ -30,10 +30,22 @@
         </div>
       </section>
 
+      <v-alert v-if="loadError" type="info" variant="tonal" class="sources-alert" border="start">
+        {{ loadError }}
+      </v-alert>
+
       <section class="sources-panel">
+        <div v-if="loading" class="sources-loading" role="status" aria-live="polite">
+          <v-progress-circular indeterminate size="22" width="3" color="primary" class="mr-3" />
+          <span>Loading indexed job counts…</span>
+        </div>
+
         <div class="sources-summary-row">
           <v-chip variant="flat" color="primary">{{ sources.length }} sources</v-chip>
-          <v-chip variant="tonal" color="secondary">{{ totalJobs }} jobs in current dataset</v-chip>
+          <v-chip variant="tonal" color="secondary">
+            <template v-if="loading">Counting jobs…</template>
+            <template v-else>{{ totalJobs }} jobs in current dataset</template>
+          </v-chip>
         </div>
 
         <div class="sources-groups">
@@ -112,6 +124,8 @@ const sources = sourceCatalog;
 const jobsBySource = ref(new Map<string, number>());
 const generatedAt = ref('Unavailable');
 const expandedCountries = ref<Record<string, boolean>>({});
+const loading = ref(true);
+const loadError = ref('');
 
 const currentTheme = computed(() => generalInfoStore.theme);
 
@@ -148,13 +162,20 @@ function toggleCountry(country: string) {
 }
 
 onMounted(async () => {
+  // Expand the first few countries by default, regardless of dataset load result.
+  expandedCountries.value = Object.fromEntries(
+    groupedSources.value.map((group, index) => [group.country, index < 3])
+  );
+
   try {
+    loading.value = true;
+    loadError.value = '';
     const response = await fetch(`${import.meta.env.BASE_URL}prebuilt_jobs.json`, {
       cache: 'no-cache',
       headers: { Accept: 'application/json' },
     });
     if (!response.ok) {
-      return;
+      throw new Error(`Failed to load prebuilt_jobs.json (${response.status})`);
     }
 
     const payload = parsePrebuiltPayload(await response.json());
@@ -165,11 +186,11 @@ onMounted(async () => {
       counts.set(job.source, (counts.get(job.source) ?? 0) + 1);
     });
     jobsBySource.value = counts;
-    expandedCountries.value = Object.fromEntries(
-      groupedSources.value.map((group, index) => [group.country, index < 3])
-    );
   } catch (error) {
+    loadError.value = 'Indexed job counts are unavailable right now, but the source catalog is shown below.';
     console.error(error);
+  } finally {
+    loading.value = false;
   }
 });
 </script>
@@ -296,6 +317,23 @@ onMounted(async () => {
   border: 1px solid rgba(102, 122, 154, 0.12);
   box-shadow: 0 20px 48px rgba(27, 47, 78, 0.06);
   backdrop-filter: blur(16px);
+}
+
+.sources-alert {
+  margin-top: 18px;
+  border-radius: 18px;
+}
+
+.sources-loading {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+  color: #5d6b80;
+  font-size: 0.95rem;
+}
+
+.sources-page--dark .sources-loading {
+  color: #c2cddd;
 }
 
 .sources-summary-row {

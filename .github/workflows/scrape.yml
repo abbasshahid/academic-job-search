@@ -43,9 +43,6 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Install site dependencies
-        run: npm install
-
       # -------- Install root deps (for Vite build) --------
       - name: Install site dependencies
         run: npm ci

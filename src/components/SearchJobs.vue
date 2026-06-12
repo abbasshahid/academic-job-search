@@ -35,11 +35,92 @@
         </div>
       </section>
 
-      <v-alert v-if="loadError" type="error" class="mt-6">
-        {{ loadError }}
+      <!-- First-time onboarding: a quick, dismissible "how to use this" guide. -->
+      <v-expand-transition>
+        <section v-if="showOnboarding && !loadError" class="onboarding-panel">
+          <div class="onboarding-head">
+            <div class="onboarding-title-row">
+              <v-icon size="22" color="primary">mdi-compass-outline</v-icon>
+              <h2 class="onboarding-title">New here? Here's how it works</h2>
+            </div>
+            <v-btn
+              size="small"
+              variant="text"
+              class="onboarding-dismiss"
+              prepend-icon="mdi-close"
+              @click="dismissOnboarding"
+            >
+              Got it
+            </v-btn>
+          </div>
+          <div class="onboarding-steps">
+            <div class="onboarding-step">
+              <span class="onboarding-step-num">1</span>
+              <div>
+                <p class="onboarding-step-title">Search by keyword</p>
+                <p class="onboarding-step-text">Type a field, role, or topic — e.g. “postdoc machine learning”.</p>
+              </div>
+            </div>
+            <div class="onboarding-step">
+              <span class="onboarding-step-num">2</span>
+              <div>
+                <p class="onboarding-step-title">Refine with filters</p>
+                <p class="onboarding-step-text">Narrow by country, role type, deadline, or your saved favorites.</p>
+              </div>
+            </div>
+            <div class="onboarding-step">
+              <span class="onboarding-step-num">3</span>
+              <div>
+                <p class="onboarding-step-title">Save &amp; track</p>
+                <p class="onboarding-step-text">Star roles to revisit, and “New” badges flag openings you haven't seen.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </v-expand-transition>
+
+      <!-- Real-time loading status while the dataset is fetched & indexed. -->
+      <section v-if="loading && !loadError" class="loader-panel" role="status" aria-live="polite">
+        <div class="loader-head">
+          <v-progress-circular indeterminate size="26" width="3" color="primary" />
+          <div>
+            <p class="loader-title">{{ currentLoadStepLabel }}…</p>
+            <p class="loader-subtitle">Preparing your job search — this only takes a moment.</p>
+          </div>
+        </div>
+        <v-progress-linear
+          :model-value="loadProgress"
+          color="primary"
+          height="8"
+          rounded
+          class="loader-bar"
+        />
+        <ol class="loader-steps">
+          <li
+            v-for="(label, index) in loadStepLabels"
+            :key="label"
+            :class="[
+              'loader-step',
+              { 'loader-step--done': index < loadStep, 'loader-step--active': index === loadStep },
+            ]"
+          >
+            <v-icon size="16">
+              {{ index < loadStep ? 'mdi-check-circle' : index === loadStep ? 'mdi-loading mdi-spin' : 'mdi-circle-outline' }}
+            </v-icon>
+            <span>{{ label }}</span>
+          </li>
+        </ol>
+      </section>
+
+      <v-alert v-if="loadError" type="error" class="mt-6" prominent border="start">
+        <p class="mb-2 font-weight-bold">We couldn't load the job dataset.</p>
+        <p class="mb-3">{{ loadError }}</p>
+        <v-btn color="error" variant="flat" size="small" prepend-icon="mdi-refresh" @click="loadJobsJson">
+          Retry
+        </v-btn>
       </v-alert>
 
-      <section class="search-panel">
+      <section v-show="!loading" class="search-panel">
         <div class="search-grid">
           <div class="search-column">
             <div class="keyword-match-row">
@@ -129,9 +210,31 @@
         </div>
       </section>
 
-      <section class="results-shell">
+      <!-- Skeleton placeholders so the results area has structure while loading. -->
+      <section v-if="loading && !loadError" class="results-shell">
+        <div class="results-list">
+          <div v-for="n in 4" :key="`skeleton-${n}`" class="job-card job-card--skeleton">
+            <v-skeleton-loader type="chip" class="mb-2" />
+            <v-skeleton-loader type="heading" class="mb-2" />
+            <v-skeleton-loader type="text" width="60%" />
+          </div>
+        </div>
+      </section>
+
+      <section v-show="!loading" class="results-shell">
         <div class="results-toolbar">
           <div class="toolbar-grid">
+            <v-select
+              v-model="selectedField"
+              :items="fieldOptions"
+              label="Field"
+              variant="solo-filled"
+              flat
+              hide-details
+              prepend-inner-icon="mdi-tag-outline"
+              class="toolbar-field"
+              :disabled="!jobsLoaded"
+            />
             <v-select
               v-model="selectedCountry"
               :items="countryOptions"
@@ -206,7 +309,16 @@
             <h2 class="results-title">Matching roles</h2>
           </div>
           <div class="results-summary">
-            Showing {{ paginatedJobs.length }} of {{ searchResults.length }} results
+            <v-progress-circular
+              v-if="searching"
+              indeterminate
+              size="16"
+              width="2"
+              color="primary"
+              class="mr-2"
+            />
+            <span v-if="searching">Updating results…</span>
+            <span v-else>Showing {{ paginatedJobs.length }} of {{ searchResults.length }} results</span>
           </div>
         </div>
 
@@ -216,28 +328,8 @@
             :key="job.id"
             class="job-card"
           >
-            <div class="job-card-top">
+            <div class="job-card-row">
               <div class="job-main">
-                <div class="job-chip-row">
-                  <v-chip
-                    v-if="isNewJob(job)"
-                    size="x-small"
-                    color="success"
-                    variant="flat"
-                  >
-                    New
-                  </v-chip>
-                  <v-chip
-                    v-for="role in job.roleTypes"
-                    :key="`${job.id}-${role}`"
-                    size="x-small"
-                    variant="tonal"
-                    class="role-chip"
-                  >
-                    {{ formatRole(role) }}
-                  </v-chip>
-                </div>
-
                 <a
                   :href="job.url"
                   target="_blank"
@@ -245,40 +337,71 @@
                   class="job-title-link"
                   @click="markJobSeen(job.id)"
                 >
-                  {{ job.title }}
+                  <span class="job-title-text">{{ job.title }}</span>
+                  <v-icon size="14" class="job-title-ext">mdi-open-in-new</v-icon>
                 </a>
 
                 <div class="job-meta-row">
-                  <span>{{ job.sourceMeta.institution }}</span>
-                  <span>{{ job.sourceMeta.countryName }}</span>
-                  <span>{{ job.sourceMeta.platform }}</span>
+                  <v-chip
+                    v-if="isNewJob(job)"
+                    size="x-small"
+                    color="success"
+                    variant="flat"
+                    class="meta-chip"
+                  >
+                    New
+                  </v-chip>
+                  <v-chip
+                    v-if="job.field"
+                    size="x-small"
+                    color="primary"
+                    variant="flat"
+                    class="meta-chip field-chip"
+                    prepend-icon="mdi-tag-outline"
+                  >
+                    {{ job.field }}
+                  </v-chip>
+                  <v-chip
+                    v-for="role in job.roleTypes"
+                    :key="`${job.id}-${role}`"
+                    size="x-small"
+                    variant="tonal"
+                    class="role-chip meta-chip"
+                  >
+                    {{ formatRole(role) }}
+                  </v-chip>
+                  <span class="meta-item">{{ job.sourceMeta.institution }}</span>
+                  <span class="meta-sep">·</span>
+                  <span class="meta-item">{{ job.sourceMeta.countryName }}</span>
+                  <template v-if="job.deadline">
+                    <span class="meta-sep">·</span>
+                    <span class="meta-item meta-deadline">
+                      <v-icon size="13">mdi-calendar-clock</v-icon>
+                      {{ formatDeadline(job.deadline) }}
+                    </span>
+                  </template>
                 </div>
               </div>
 
-              <div class="job-side">
+              <div class="job-actions">
                 <v-btn
                   size="small"
                   variant="text"
+                  density="comfortable"
                   :icon="favoriteIdSet.has(job.id) ? 'mdi-star' : 'mdi-star-outline'"
                   :color="favoriteIdSet.has(job.id) ? 'warning' : undefined"
                   @click="toggleFavorite(job.id)"
                 />
-                <div class="deadline-block">
-                  <span class="deadline-label">Deadline</span>
-                  <strong class="deadline-value">{{ formatDeadline(job.deadline) }}</strong>
-                </div>
+                <v-btn
+                  size="x-small"
+                  variant="text"
+                  class="details-btn"
+                  :append-icon="expandedDescriptions[job.id] ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+                  @click="toggleDescription(job.id)"
+                >
+                  Details
+                </v-btn>
               </div>
-            </div>
-
-            <div class="job-card-footer">
-              <v-btn
-                size="small"
-                variant="text"
-                class="details-btn"
-                @click="toggleDescription(job.id)"
-              >
-                {{ expandedDescriptions[job.id] ? 'Hide details' : 'Show details' }}
-              </v-btn>
             </div>
 
             <v-expand-transition>
@@ -292,15 +415,22 @@
           </article>
         </div>
 
-        <v-alert
+        <div
           v-if="!loading && hasSearched && !searchResults.length && jobsLoaded"
-          type="info"
-          class="mt-6"
+          class="empty-state"
         >
-          No results matched the current keywords and filters.
-        </v-alert>
+          <v-icon size="48" color="primary" class="empty-state-icon">mdi-magnify-close</v-icon>
+          <h3 class="empty-state-title">No matching roles</h3>
+          <p class="empty-state-text">
+            No openings matched your current keywords and filters. Try removing a filter or
+            broadening your search terms.
+          </p>
+          <v-btn color="primary" variant="flat" class="action-btn" prepend-icon="mdi-restart" @click="resetFilters">
+            Reset filters
+          </v-btn>
+        </div>
 
-        <div class="pagination-shell">
+        <div v-if="pageCount > 1" class="pagination-shell">
           <v-pagination
             v-model="page"
             :length="pageCount"
@@ -309,6 +439,19 @@
         </div>
       </section>
     </div>
+
+    <v-snackbar
+      v-model="snackbar.show"
+      :color="snackbar.color"
+      location="bottom"
+      timeout="2600"
+      rounded="pill"
+    >
+      {{ snackbar.text }}
+      <template #actions>
+        <v-btn variant="text" size="small" @click="snackbar.show = false">Close</v-btn>
+      </template>
+    </v-snackbar>
   </v-container>
 </template>
 
@@ -335,7 +478,17 @@ const STORAGE_KEYS = {
   recentKeywords: 'academic-job-search:recent-keywords',
   seenJobIds: 'academic-job-search:seen-job-ids',
   searchState: 'academic-job-search:search-state',
+  onboardingDismissed: 'academic-job-search:onboarding-dismissed',
 } as const;
+
+// Ordered stages shown while the dataset is being fetched and prepared, so
+// first-time users get clear, real-time feedback instead of a blank screen.
+const LOAD_STEPS = [
+  'Connecting to the job dataset',
+  'Downloading curated openings',
+  'Indexing roles, sources & filters',
+  'Ready to search',
+] as const;
 
 const USEFUL_LINKS = [
   { title: 'JobRxiv', value: 'https://jobrxiv.org/' },
@@ -358,6 +511,7 @@ const keywordInput = ref('');
 const matchMode = ref<'any' | 'all'>('any');
 const selectedCountry = ref('All');
 const selectedInstitution = ref('All');
+const selectedField = ref('All');
 const selectedRoleTypes = ref<RoleType[]>([]);
 const sortBy = ref<SearchSort>('relevance');
 const onlyFavorites = ref(false);
@@ -366,9 +520,20 @@ const onlyWithDeadline = ref(false);
 const selectedUsefulLink = ref<string | null>(null);
 
 const loading = ref(false);
+const searching = ref(false);
+const loadStep = ref(0);
 const hasSearched = ref(false);
 const searchResults = ref<Job[]>([]);
 const expandedDescriptions = ref<Record<string, boolean>>({});
+
+const showOnboarding = ref(false);
+const snackbar = ref<{ show: boolean; text: string; color: string }>({
+  show: false,
+  text: '',
+  color: 'primary',
+});
+
+let searchingTimer: ReturnType<typeof setTimeout> | null = null;
 
 const favoriteIds = ref<string[]>([]);
 const seenJobIds = ref<string[]>([]);
@@ -409,6 +574,16 @@ const countryOptions = computed(() => {
   return ['All', ...Array.from(countries).sort((left, right) => left.localeCompare(right))];
 });
 
+const fieldOptions = computed(() => {
+  const fields = new Set<string>();
+  dataset.value.jobs.forEach((job) => {
+    if (job.field) {
+      fields.add(job.field);
+    }
+  });
+  return ['All', ...Array.from(fields).sort((left, right) => left.localeCompare(right))];
+});
+
 const formattedGeneratedAt = computed(() =>
   dataset.value.generatedAt
     ? new Date(dataset.value.generatedAt).toLocaleString()
@@ -419,6 +594,20 @@ const pageCount = computed(() => Math.max(1, Math.ceil(searchResults.value.lengt
 const paginatedJobs = computed(() =>
   searchResults.value.slice((page.value - 1) * itemsPerPage, page.value * itemsPerPage)
 );
+
+const loadStepLabels = computed(() => Array.from(LOAD_STEPS));
+const currentLoadStepLabel = computed(() => LOAD_STEPS[Math.min(loadStep.value, LOAD_STEPS.length - 1)]);
+const loadProgress = computed(() =>
+  Math.round((Math.min(loadStep.value + 1, LOAD_STEPS.length) / LOAD_STEPS.length) * 100)
+);
+
+function notify(text: string, color = 'primary') {
+  snackbar.value = { show: true, text, color };
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function readStorage<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') {
@@ -454,6 +643,7 @@ function restorePersistedState() {
     matchMode?: 'any' | 'all';
     country?: string;
     institution?: string;
+    field?: string;
     roleTypes?: RoleType[];
     sortBy?: SearchSort;
     onlyFavorites?: boolean;
@@ -465,6 +655,7 @@ function restorePersistedState() {
   matchMode.value = state.matchMode ?? 'any';
   selectedCountry.value = state.country ?? 'All';
   selectedInstitution.value = 'All';
+  selectedField.value = state.field ?? 'All';
   selectedRoleTypes.value = state.roleTypes ?? [];
   sortBy.value = state.sortBy ?? 'relevance';
   onlyFavorites.value = state.onlyFavorites ?? false;
@@ -478,6 +669,7 @@ function persistCurrentState() {
     matchMode: matchMode.value,
     country: selectedCountry.value,
     institution: 'All',
+    field: selectedField.value,
     roleTypes: selectedRoleTypes.value,
     sortBy: sortBy.value,
     onlyFavorites: onlyFavorites.value,
@@ -487,8 +679,13 @@ function persistCurrentState() {
 }
 
 async function loadJobsJson() {
+  loading.value = true;
+  loadError.value = '';
+  loadStep.value = 0;
+
   try {
-    loadError.value = '';
+    // Step 1: connect / request the dataset.
+    await delay(150);
     const response = await fetch(`${import.meta.env.BASE_URL}prebuilt_jobs.json`, {
       cache: 'no-cache',
       headers: { Accept: 'application/json' },
@@ -498,14 +695,26 @@ async function loadJobsJson() {
       throw new Error(`Failed to load prebuilt_jobs.json (${response.status})`);
     }
 
+    // Step 2: download / parse the JSON body.
+    loadStep.value = 1;
     const rawPayload = await response.json();
+
+    // Step 3: enrich and index the jobs for searching.
+    loadStep.value = 2;
+    await delay(150);
     dataset.value = parsePrebuiltPayload(rawPayload);
     jobsLoaded.value = true;
     onSearch();
+
+    // Step 4: ready.
+    loadStep.value = 3;
+    await delay(200);
   } catch (error) {
     jobsLoaded.value = false;
     loadError.value = error instanceof Error ? error.message : 'Failed to load jobs JSON.';
     console.error(error);
+  } finally {
+    loading.value = false;
   }
 }
 
@@ -582,6 +791,9 @@ function onSearch() {
     if (selectedInstitution.value !== 'All' && job.sourceMeta.institution !== selectedInstitution.value) {
       return false;
     }
+    if (selectedField.value !== 'All' && job.field !== selectedField.value) {
+      return false;
+    }
     if (!roleMatches(job)) {
       return false;
     }
@@ -609,20 +821,24 @@ function resetFilters() {
   matchMode.value = 'any';
   selectedCountry.value = 'All';
   selectedInstitution.value = 'All';
+  selectedField.value = 'All';
   selectedRoleTypes.value = [];
   sortBy.value = 'relevance';
   onlyFavorites.value = false;
   onlyNew.value = false;
   onlyWithDeadline.value = false;
   onSearch();
+  notify('Filters reset.', 'info');
 }
 
 function toggleFavorite(jobId: string) {
   const next = favoriteIdSet.value;
   if (next.has(jobId)) {
     favoriteIds.value = favoriteIds.value.filter((id) => id !== jobId);
+    notify('Removed from favorites.', 'info');
   } else {
     favoriteIds.value = [...favoriteIds.value, jobId];
+    notify('Saved to favorites.', 'warning');
   }
 }
 
@@ -645,9 +861,24 @@ function markJobSeen(jobId: string) {
 }
 
 function markCurrentResultsSeen() {
+  const before = seenJobIdSet.value;
+  const newlySeen = searchResults.value.filter((job) => !before.has(job.id)).length;
+
   const merged = new Set(seenJobIds.value);
   searchResults.value.forEach((job) => merged.add(job.id));
   seenJobIds.value = Array.from(merged);
+
+  notify(
+    newlySeen
+      ? `Marked ${newlySeen} result${newlySeen === 1 ? '' : 's'} as seen.`
+      : 'All current results were already marked as seen.',
+    'success'
+  );
+}
+
+function dismissOnboarding() {
+  showOnboarding.value = false;
+  writeStorage(STORAGE_KEYS.onboardingDismissed, true);
 }
 
 function formatDeadline(deadline: string | null): string {
@@ -668,6 +899,7 @@ function cleanText(value: string | null | undefined): string {
 
 function buildJobSummary(job: Job): string {
   const details = [
+    job.field ? `Field: ${job.field}` : null,
     job.department ? `Department: ${job.department}` : null,
     job.location ? `Location: ${job.location}` : null,
     job.employmentType ? `Employment: ${job.employmentType}` : null,
@@ -736,6 +968,7 @@ watch(
     keywordInput,
     matchMode,
     selectedCountry,
+    selectedField,
     selectedRoleTypes,
     sortBy,
     onlyFavorites,
@@ -748,6 +981,17 @@ watch(
     if (!jobsLoaded.value) {
       return;
     }
+
+    // Briefly surface a "searching" state so filter changes feel responsive.
+    searching.value = true;
+    if (searchingTimer) {
+      clearTimeout(searchingTimer);
+    }
+    searchingTimer = setTimeout(() => {
+      searching.value = false;
+      searchingTimer = null;
+    }, 220);
+
     onSearch();
   },
   { deep: true }
@@ -755,12 +999,16 @@ watch(
 
 onMounted(async () => {
   restorePersistedState();
+  showOnboarding.value = !readStorage<boolean>(STORAGE_KEYS.onboardingDismissed, false);
   await loadJobsJson();
 });
 
 onBeforeUnmount(() => {
   if (recentKeywordSaveTimer) {
     clearTimeout(recentKeywordSaveTimer);
+  }
+  if (searchingTimer) {
+    clearTimeout(searchingTimer);
   }
 });
 </script>
@@ -1010,7 +1258,7 @@ onBeforeUnmount(() => {
 
 .toolbar-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 14px;
 }
 
@@ -1058,27 +1306,28 @@ onBeforeUnmount(() => {
 
 .results-list {
   display: grid;
-  gap: 18px;
+  gap: 12px;
 }
 
 .job-card {
-  padding: 22px;
-  border-radius: 24px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 252, 0.94));
-  border: 1px solid rgba(96, 117, 150, 0.12);
-  box-shadow: 0 12px 28px rgba(26, 45, 78, 0.06);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(96, 117, 150, 0.14);
+  box-shadow: 0 6px 16px rgba(26, 45, 78, 0.05);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .job-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 20px 36px rgba(26, 45, 78, 0.1);
+  border-color: rgba(36, 70, 111, 0.35);
+  box-shadow: 0 10px 22px rgba(26, 45, 78, 0.09);
 }
 
-.job-card-top {
+.job-card-row {
   display: flex;
   justify-content: space-between;
-  gap: 18px;
+  align-items: flex-start;
+  gap: 14px;
 }
 
 .job-main {
@@ -1086,83 +1335,92 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.job-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
+/* The title is the focal point — it tells the user what the role/field is. */
+.job-title-link {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  color: #14233c;
+  text-decoration: none;
+  font-size: 1.02rem;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.job-title-link:hover .job-title-text {
+  color: #24466f;
+  text-decoration: underline;
+}
+
+.job-title-ext {
+  flex: none;
+  color: #9aa7bb;
+  align-self: center;
 }
 
 .role-chip {
   background: rgba(32, 68, 111, 0.08);
 }
 
-.job-title-link {
-  display: inline-block;
-  color: #10284a;
-  text-decoration: none;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: clamp(1.15rem, 2vw, 1.55rem);
-  line-height: 1.28;
-  font-weight: 700;
+.meta-chip {
+  height: 18px;
 }
 
-.job-title-link:hover {
-  color: #24466f;
+.field-chip {
+  font-weight: 600;
+}
+
+.field-chip :deep(.v-icon) {
+  font-size: 12px !important;
 }
 
 .job-meta-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 18px;
-  margin-top: 12px;
-  color: #5c6b80;
-  font-size: 0.94rem;
+  align-items: center;
+  gap: 6px 8px;
+  margin-top: 7px;
+  color: #6b7889;
+  font-size: 0.8rem;
 }
 
-.job-side {
+.meta-item {
+  white-space: nowrap;
+}
+
+.meta-sep {
+  color: #b3bdcb;
+}
+
+.meta-deadline {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #4f5f76;
+  font-weight: 600;
+}
+
+.job-actions {
   display: flex;
-  flex-direction: column;
-  align-items: end;
-  gap: 10px;
-  min-width: 120px;
-}
-
-.deadline-block {
-  text-align: right;
-}
-
-.deadline-label {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #69788d;
-}
-
-.deadline-value {
-  color: #10284a;
-}
-
-.job-card-footer {
-  display: flex;
-  justify-content: end;
-  margin-top: 16px;
+  align-items: center;
+  gap: 2px;
+  flex: none;
 }
 
 .details-btn {
   text-transform: none;
   letter-spacing: 0;
-  font-weight: 700;
+  font-weight: 600;
+  color: #5d6b80;
 }
 
 .job-details {
-  margin-top: 14px;
-  padding-top: 16px;
+  margin-top: 10px;
+  padding-top: 10px;
   border-top: 1px solid rgba(96, 117, 150, 0.12);
-  color: #445268;
-  line-height: 1.7;
+  color: #4a586e;
+  font-size: 0.86rem;
+  line-height: 1.6;
 }
 
 .pagination-shell {
@@ -1173,6 +1431,177 @@ onBeforeUnmount(() => {
 
 .saved-search-chip {
   cursor: pointer;
+}
+
+/* Onboarding banner */
+.onboarding-panel {
+  margin-top: 26px;
+  padding: 22px 24px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(235, 243, 255, 0.95), rgba(235, 248, 242, 0.95));
+  border: 1px solid rgba(76, 107, 154, 0.16);
+  box-shadow: 0 16px 38px rgba(27, 47, 78, 0.06);
+}
+
+.onboarding-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.onboarding-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.onboarding-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #10284a;
+}
+
+.onboarding-dismiss {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+.onboarding-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.onboarding-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.onboarding-step-num {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #24466f;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.onboarding-step-title {
+  margin: 0 0 2px;
+  font-weight: 700;
+  color: #10284a;
+}
+
+.onboarding-step-text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: #4f5f76;
+}
+
+/* Loading status panel */
+.loader-panel {
+  margin-top: 26px;
+  padding: 24px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(102, 122, 154, 0.14);
+  box-shadow: 0 16px 38px rgba(27, 47, 78, 0.06);
+}
+
+.loader-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.loader-title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #10284a;
+}
+
+.loader-subtitle {
+  margin: 2px 0 0;
+  font-size: 0.88rem;
+  color: #5d6b80;
+}
+
+.loader-bar {
+  margin-bottom: 18px;
+}
+
+.loader-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.loader-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.92rem;
+  color: #8694a8;
+  transition: color 0.2s ease;
+}
+
+.loader-step--done {
+  color: #2e7d57;
+}
+
+.loader-step--active {
+  color: #10284a;
+  font-weight: 700;
+}
+
+.job-card--skeleton {
+  pointer-events: none;
+}
+
+/* Empty state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  margin: 28px 0 8px;
+  padding: 36px 24px;
+  border-radius: 24px;
+  border: 1px dashed rgba(96, 117, 150, 0.32);
+  background: rgba(244, 248, 252, 0.6);
+}
+
+.empty-state-icon {
+  margin-bottom: 4px;
+}
+
+.empty-state-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #10284a;
+}
+
+.empty-state-text {
+  margin: 0 0 8px;
+  max-width: 440px;
+  line-height: 1.6;
+  color: #5d6b80;
 }
 
 @media (max-width: 960px) {
@@ -1207,17 +1636,9 @@ onBeforeUnmount(() => {
     height: 58px;
   }
 
-  .results-header,
-  .job-card-top {
+  .results-header {
     flex-direction: column;
     align-items: start;
-  }
-
-  .job-side {
-    width: 100%;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
   }
 
   .toolbar-grid {
@@ -1243,9 +1664,8 @@ onBeforeUnmount(() => {
 .search-page--dark .hero-title,
 .search-page--dark .results-title,
 .search-page--dark .control-label,
-.search-page--dark .job-title-link,
-.search-page--dark .deadline-value {
-  color: #f2f6fb;
+.search-page--dark .job-title-link {
+  color: #eef3fb;
 }
 
 .search-page--dark .hero-text,
@@ -1298,12 +1718,71 @@ onBeforeUnmount(() => {
 }
 
 .search-page--dark .job-card {
-  background: linear-gradient(180deg, rgba(21, 30, 46, 0.98), rgba(18, 27, 41, 0.94));
-  border-color: rgba(146, 167, 201, 0.14);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+  background: rgba(21, 30, 46, 0.96);
+  border-color: rgba(146, 167, 201, 0.16);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
 }
 
-.search-page--dark .job-title-link:hover {
+.search-page--dark .job-card:hover {
+  border-color: rgba(173, 199, 247, 0.45);
+}
+
+.search-page--dark .job-title-link:hover .job-title-text {
   color: #adc7f7;
+}
+
+.search-page--dark .meta-sep {
+  color: #5a6b82;
+}
+
+.search-page--dark .meta-deadline {
+  color: #c2cddd;
+}
+
+.search-page--dark .onboarding-panel,
+.search-page--dark .loader-panel {
+  background: rgba(17, 25, 39, 0.84);
+  border-color: rgba(146, 167, 201, 0.16);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.24);
+}
+
+.search-page--dark .onboarding-panel {
+  background: linear-gradient(135deg, rgba(34, 49, 74, 0.86), rgba(24, 44, 56, 0.86));
+}
+
+.search-page--dark .onboarding-title,
+.search-page--dark .onboarding-step-title,
+.search-page--dark .loader-title {
+  color: #f2f6fb;
+}
+
+.search-page--dark .onboarding-step-text,
+.search-page--dark .loader-subtitle {
+  color: #c2cddd;
+}
+
+.search-page--dark .loader-step {
+  color: #8fa1bc;
+}
+
+.search-page--dark .loader-step--active {
+  color: #f2f6fb;
+}
+
+.search-page--dark .loader-step--done {
+  color: #6bdba9;
+}
+
+.search-page--dark .empty-state {
+  border-color: rgba(146, 167, 201, 0.26);
+  background: rgba(240, 244, 250, 0.04);
+}
+
+.search-page--dark .empty-state-title {
+  color: #f2f6fb;
+}
+
+.search-page--dark .empty-state-text {
+  color: #c2cddd;
 }
 </style>

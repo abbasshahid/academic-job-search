@@ -26,6 +26,7 @@ export interface Job {
   searchableText: string;
   keywordTokens: string[];
   roleTypes: RoleType[];
+  field: string | null;
   sourceMeta: SourceMetadata;
   department: string | null;
   location: string | null;
