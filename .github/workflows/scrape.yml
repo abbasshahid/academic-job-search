@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           persist-credentials: true
           fetch-depth: 0
@@ -39,9 +39,9 @@ jobs:
 
       # -------- Setup Node --------
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
       # -------- Install root deps (for Vite build) --------
       # Use `npm install`, not `npm ci`: package-lock.json is intentionally
@@ -66,15 +66,25 @@ jobs:
       - name: Detect new job postings matching notification keywords
         id: notify
         run: |
+          # The payload is now an object ({ generatedAt, jobs, sources, stats }).
+          # Support both the new object form and the legacy flat-array form,
+          # match a new posting by URL (so changing timestamps don't flag every
+          # job as new), and turn the comma-separated keyword list into a proper
+          # regex alternation for jq's test().
           jq -n \
             --slurpfile old prev_jobs.json \
             --slurpfile new public/prebuilt_jobs.json \
             --arg re "$NOTIFY_KEYWORDS" '
-            [ $new[0][] as $item
-              | select( ($old[0] | index($item)) | not )
-              | select($item.title | ascii_downcase | test($re; "i"))
-              | "\($item.title) - \($item.url)"
-            ]' > new_matches.json
+            ($re | gsub(","; "|")) as $rx
+            | (if ($old[0] | type) == "array" then $old[0] else ($old[0].jobs // []) end) as $oldjobs
+            | (if ($new[0] | type) == "array" then $new[0] else ($new[0].jobs // []) end) as $newjobs
+            | ($oldjobs | map(.url)) as $oldurls
+            | [ $newjobs[]
+                | .url as $u
+                | select(($oldurls | index($u)) == null)
+                | select(((.title // "") | ascii_downcase) | test($rx; "i"))
+                | "\(.title) - \(.url)"
+              ]' > new_matches.json
 
           if [ -s new_matches.json ]; then
             echo "matches<<EOF" >> $GITHUB_ENV
