@@ -124,8 +124,8 @@
     "institution": "Pse",
     "platform": "Direct careers page",
     "tags": [],
-    "countryName": "EDU",
-    "countryCode": "edu"
+    "countryName": "Germany",
+    "countryCode": "de"
   },
   {
     "url": "http://portal.mytum.de/jobs/wissenschaftler",
@@ -1118,8 +1118,8 @@
     "institution": "Saxion",
     "platform": "Direct careers page",
     "tags": [],
-    "countryName": "EDU",
-    "countryCode": "edu"
+    "countryName": "Netherlands",
+    "countryCode": "nl"
   },
   {
     "url": "https://www.hogeschoolrotterdam.nl/hogeschool/werken-bij-hr/vacature-overzicht/",
@@ -1195,7 +1195,7 @@
       "phd",
       "research"
     ],
-    "countryName": "CAT",
+    "countryName": "Spain",
     "countryCode": "cat"
   },
   {
@@ -1685,7 +1685,7 @@
     "institution": "Netsyn",
     "platform": "Direct careers page",
     "tags": [],
-    "countryName": "EDU",
+    "countryName": "United States",
     "countryCode": "edu"
   },
   {
@@ -1693,7 +1693,7 @@
     "institution": "Ece",
     "platform": "Direct careers page",
     "tags": [],
-    "countryName": "EDU",
+    "countryName": "United States",
     "countryCode": "edu"
   },
   {
@@ -1813,5 +1813,349 @@
     "tags": [],
     "countryName": "IO",
     "countryCode": "io"
+  },
+  {
+    "url": "https://emploi.cnrs.fr/Offres.aspx",
+    "institution": "Emploi",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "France",
+    "countryCode": "fr"
+  },
+  {
+    "url": "https://www.universite-paris-saclay.fr/en/job-offers",
+    "institution": "Universite Paris Saclay",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "France",
+    "countryCode": "fr"
+  },
+  {
+    "url": "https://jobs.sorbonne-universite.fr/offre-de-emploi/liste-offres.aspx",
+    "institution": "Sorbonne Universite",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "France",
+    "countryCode": "fr"
+  },
+  {
+    "url": "https://jobs.inria.fr/public/classic/en/offres",
+    "institution": "Inria",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "France",
+    "countryCode": "fr"
+  },
+  {
+    "url": "https://www.polimi.it/en/work-with-us/academic-career",
+    "institution": "Polimi",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Italy",
+    "countryCode": "it"
+  },
+  {
+    "url": "https://www.unibo.it/en/university/work-with-us",
+    "institution": "Unibo",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Italy",
+    "countryCode": "it"
+  },
+  {
+    "url": "https://www.polito.it/en/university/work-with-us",
+    "institution": "Polito",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Italy",
+    "countryCode": "it"
+  },
+  {
+    "url": "https://www.unipd.it/en/work-with-us",
+    "institution": "Unipd",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Italy",
+    "countryCode": "it"
+  },
+  {
+    "url": "https://www.unitn.it/en/apply/job-opportunities",
+    "institution": "Unitn",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Italy",
+    "countryCode": "it"
+  },
+  {
+    "url": "https://concorsi.sapienza.it/",
+    "institution": "Concorsi",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Italy",
+    "countryCode": "it"
+  },
+  {
+    "url": "https://www.ub.edu/portaltreball/en",
+    "institution": "Ub",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Spain",
+    "countryCode": "es"
+  },
+  {
+    "url": "https://www.uab.cat/web/about-the-uab/work-at-the-uab-1345668002522.html",
+    "institution": "Uab",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Spain",
+    "countryCode": "cat"
+  },
+  {
+    "url": "https://www.ulisboa.pt/en/info/recruitment",
+    "institution": "Ulisboa",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Portugal",
+    "countryCode": "pt"
+  },
+  {
+    "url": "https://www.up.pt/portal/en/explore/about-uporto/recruitment-opportunities/",
+    "institution": "Up",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Portugal",
+    "countryCode": "pt"
+  },
+  {
+    "url": "https://en.uw.edu.pl/jobs/",
+    "institution": "Uw",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Poland",
+    "countryCode": "pl"
+  },
+  {
+    "url": "https://bazaogloszen.nauka.gov.pl/",
+    "institution": "Bazaogloszen",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Poland",
+    "countryCode": "pl"
+  },
+  {
+    "url": "https://www.uj.edu.pl/en_GB/praca",
+    "institution": "Uj",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Poland",
+    "countryCode": "pl"
+  },
+  {
+    "url": "https://apella.minedu.gov.gr/en/positions",
+    "institution": "Apella",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Greece",
+    "countryCode": "gr"
+  },
+  {
+    "url": "https://www.tcd.ie/hr/vacancies/",
+    "institution": "Tcd",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Ireland",
+    "countryCode": "ie"
+  },
+  {
+    "url": "https://www.ucd.ie/workatucd/jobs/",
+    "institution": "Ucd",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Ireland",
+    "countryCode": "ie"
+  },
+  {
+    "url": "https://www.universityofgalway.ie/about-us/jobs/",
+    "institution": "Universityofgalway",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Ireland",
+    "countryCode": "ie"
+  },
+  {
+    "url": "https://jobs.helsinki.fi/",
+    "institution": "Helsinki",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Finland",
+    "countryCode": "fi"
+  },
+  {
+    "url": "https://www.tuni.fi/en/about-us/work-with-us/open-positions",
+    "institution": "Tuni",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Finland",
+    "countryCode": "fi"
+  },
+  {
+    "url": "https://www.utu.fi/en/university/come-work-with-us/open-positions",
+    "institution": "Utu",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Finland",
+    "countryCode": "fi"
+  },
+  {
+    "url": "https://www.uu.se/en/about-uu/join-us/jobs-and-vacancies",
+    "institution": "Uu",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Sweden",
+    "countryCode": "se"
+  },
+  {
+    "url": "https://www.su.se/english/about-the-university/work-at-su/available-jobs",
+    "institution": "Su",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Sweden",
+    "countryCode": "se"
+  },
+  {
+    "url": "https://www.gu.se/en/about-the-university/welcome-to-the-university-of-gothenburg/vacancies",
+    "institution": "Gu",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Sweden",
+    "countryCode": "se"
+  },
+  {
+    "url": "https://ki.se/en/about-ki/jobs-and-vacancies",
+    "institution": "Ki",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Sweden",
+    "countryCode": "se"
+  },
+  {
+    "url": "https://cuni.cz/UKEN-1304.html",
+    "institution": "Cuni",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Czech Republic",
+    "countryCode": "cz"
+  },
+  {
+    "url": "https://www.muni.cz/en/about-us/careers/job-offers",
+    "institution": "Muni",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Czech Republic",
+    "countryCode": "cz"
+  },
+  {
+    "url": "https://ut.ee/en/careers",
+    "institution": "Ut",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Estonia",
+    "countryCode": "ee"
+  },
+  {
+    "url": "https://taltech.ee/en/vacancies",
+    "institution": "Taltech",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Estonia",
+    "countryCode": "ee"
+  },
+  {
+    "url": "https://www.vu.lt/en/about-vu/career",
+    "institution": "Vu",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Lithuania",
+    "countryCode": "lt"
+  },
+  {
+    "url": "https://en.ktu.edu/careers/",
+    "institution": "Ktu",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Lithuania",
+    "countryCode": "lt"
+  },
+  {
+    "url": "https://www.lu.lv/en/about-us/vacancies/",
+    "institution": "Lu",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Latvia",
+    "countryCode": "lv"
+  },
+  {
+    "url": "https://www.uni-lj.si/news/job_vacancies/",
+    "institution": "Uni Lj",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Slovenia",
+    "countryCode": "si"
+  },
+  {
+    "url": "https://uniba.sk/en/",
+    "institution": "Uniba",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Slovakia",
+    "countryCode": "sk"
+  },
+  {
+    "url": "https://www.pmf.unizg.hr/en/about_us/about_us/open_positions/jobs",
+    "institution": "Pmf",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Croatia",
+    "countryCode": "hr"
+  },
+  {
+    "url": "https://www.uni-sofia.bg/index.php/eng/news/competitions/academic_positions/open_academic_positions",
+    "institution": "Uni Sofia",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Bulgaria",
+    "countryCode": "bg"
+  },
+  {
+    "url": "https://www.ucy.ac.cy/hr/employment/vacancies/?lang=en",
+    "institution": "Ucy",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Cyprus",
+    "countryCode": "cy"
+  },
+  {
+    "url": "https://www.elte.hu/en/career-services",
+    "institution": "Elte",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Hungary",
+    "countryCode": "hu"
+  },
+  {
+    "url": "https://unibuc.ro/?lang=en",
+    "institution": "Unibuc",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Romania",
+    "countryCode": "ro"
+  },
+  {
+    "url": "https://www.um.edu.mt/about/jobopportunities/",
+    "institution": "Um",
+    "platform": "Direct careers page",
+    "tags": [],
+    "countryName": "Malta",
+    "countryCode": "mt"
   }
 ]
