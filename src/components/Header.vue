@@ -58,6 +58,29 @@
           </v-list>
         </v-menu>
 
+        <v-menu offset-y>
+          <template #activator="{ props }">
+            <v-btn v-bind="props" variant="text" class="header-nav-btn">
+              Grants &amp; Events
+              <v-icon end>mdi-menu-down</v-icon>
+            </v-btn>
+          </template>
+
+          <v-list class="header-menu-list">
+            <v-list-item
+              v-for="link in grantsEventsLinks"
+              :key="link.href"
+              :href="link.href"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <v-list-item-title class="text-caption">
+                {{ link.text }}
+              </v-list-item-title>
+            </v-list-item>
+          </v-list>
+        </v-menu>
+
         <v-btn variant="text" tag="router-link" :to="{ name: 'Sources' }" class="header-nav-btn">
           Sources
         </v-btn>
@@ -119,6 +142,34 @@ const usefulLinks = [
   { text: 'Research in Germany', href: 'https://www.research-in-germany.org/en/your-goal/advanced-research/job-portals.html' },
   { text: 'PhD Finder', href: 'https://phdfinder.com/' },
   { text: 'PhD Scanner', href: 'https://www.phdscanner.com/' },
+];
+
+const grantsEventsLinks = [
+  { text: 'DARE Milan', href: 'https://dare-milan.github.io/' },
+  { text: 'CCS NextGen ’26', href: 'https://ccs-nextgen26.hotcrp.com/' },
+  { text: 'G-Research NextGen Grants', href: 'https://www.gresearch.com/nextgen/grants/' },
+  { text: 'USENIX Security ’26', href: 'https://www.usenix.org/conference/usenixsecurity26' },
+  { text: 'RIPE RACI', href: 'https://www.ripe.net/community/community-initiatives/raci/' },
+  { text: 'SICSA PhD Travel Fund', href: 'https://sicsa.ac.uk/sga/phd-travel-fund/' },
+  { text: 'SOSP 2026 Travel Grant', href: 'https://sigops.org/s/conferences/sosp/2026/grant.html' },
+  { text: 'NLnet Grants', href: 'https://nlnet.nl/propose/' },
+  { text: 'IEEE MSN 2026 PhD Forum', href: 'https://ieee-msn.org/2026/cf-PhD.php' },
+  { text: 'Security Week Austria', href: 'https://securityweek.at/' },
+  { text: 'Citadel Conference Travel Grant', href: 'https://www.citadel.com/careers/programs-and-events/conference-travel-grant/' },
+  { text: 'ACM SIGCOMM Travel Grants', href: 'https://www.sigcomm.org/travel-grants' },
+  { text: 'ACM SIGSAC Travel Grants', href: 'https://www.sigsac.org/travel-grants/' },
+  { text: 'ACM SIGSOFT Travel Grants', href: 'https://www.sigsoft.org/travel-grants/' },
+  { text: 'ACM SIGPLAN Travel Grants', href: 'https://www.sigplan.org/travel-grants/' },
+  { text: 'ACM SIGGRAPH Travel Grants', href: 'https://www.siggraph.org/travel-grants/' },
+  { text: 'ACM SIGMM Travel Grants', href: 'https://www.sigmm.org/travel-grants/' },
+  { text: 'ACM SIGMETRICS Travel Grants', href: 'https://www.sigmetrics.org/travel-grants/' },
+  { text: 'ACM SIGWEB Travel Grants', href: 'https://www.sigweb.org/travel-grants/' },
+  { text: 'ACM SIGGRAPH Asia Travel Grants', href: 'https://www.siggraph.org/asia/travel-grants/' },
+  { text: 'ACM SIGCHI Travel Grants', href: 'https://sigchi.submittable.com/submit' },
+  { text: 'Austrian Students Grants', href: 'https://grants.at/en/' },
+  { text: 'OEGMBT Reisekostenzuschuss', href: 'https://oegmbt.at/services/reisekostenzuschuss' },
+  { text: 'SFPE Student Travel Grants', href: 'https://www.sfpe.org/foundation/funding-opportunities/student-travel-grants' },
+  { text: 'KDD 2026 Student Travel Award', href: 'https://kdd2026.kdd.org/call-for-student-travel-award-applications/' }
 ];
 </script>
 
